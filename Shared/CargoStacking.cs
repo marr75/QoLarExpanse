@@ -51,22 +51,37 @@ static class CargoStacking {
         return new StackPlan(rows, stacks, hidden);
     }
 
+    // The stack stays where its earliest member already sits: the representative is the member whose
+    // row has the lowest sibling index, and Members is reordered to match so Representative and Row
+    // never disagree. Everything else is hidden in place.
     static void Collect(CargoGroup group, IReadOnlyDictionary<Cargo, ResorceRow> rowOf, List<StackEntry> stacks, List<ResorceRow> hidden, bool editable) {
-        ResorceRow? representative = null;
+        var placed = new List<(Cargo cargo, ResorceRow row)>();
         foreach (var member in group.Members) {
-            if (!rowOf.TryGetValue(member, out var row)) {
-                continue;
+            if (rowOf.TryGetValue(member, out var row)) {
+                placed.Add((member, row));
             }
-            if (representative == null) {
-                representative = row;
-            } else {
-                hidden.Add(row);
+        }
+        if (placed.Count == 0) {
+            return;
+        }
+
+        var first = 0;
+        for (var i = 1; i < placed.Count; i++) {
+            if (placed[i].row.transform.GetSiblingIndex() < placed[first].row.transform.GetSiblingIndex()) {
+                first = i;
             }
         }
 
-        if (representative != null) {
-            stacks.Add(new StackEntry(representative, group, editable));
+        var members = new List<Cargo> { placed[first].cargo };
+        for (var i = 0; i < placed.Count; i++) {
+            if (i != first) {
+                hidden.Add(placed[i].row);
+                members.Add(placed[i].cargo);
+            }
         }
+        members.AddRange(group.Members.Where(m => !rowOf.ContainsKey(m)));
+
+        stacks.Add(new StackEntry(placed[first].row, new CargoGroup(group.ResourceTypeType, group.Key, members), editable));
     }
 
     // SetData appends every row to listResorces twice (ResourcesList.cs:396 plus :598/609/625);

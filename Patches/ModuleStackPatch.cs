@@ -31,8 +31,6 @@ static class ModuleStackPatch {
     const float EachMinWidth = 60f;
     const float TotalMinWidth = 40f;
     const float Inset = 4f;
-    const float RuleMaxHeight = 6f;
-    const float RuleMinWidth = 40f;
 
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
 
@@ -190,25 +188,20 @@ static class ModuleStackPatch {
         var height = Mathf.Max(line.height, 22f);
         var y = line.center.y;
 
-        var room = line.xMin - host.rect.xMin - Gap;
-        var showLabel = room >= LabelWidth + QtyWidth + Gap;
-        var inputX = line.xMin - Gap - QtyWidth;
-        Place(quantity, host, inputX, y, QtyWidth, height);
-        qtyLabel.SetActive(showLabel);
-        if (showLabel) {
-            Place(qtyLabel, host, inputX - Gap - LabelWidth, y, LabelWidth, height);
-        }
+        // The label is unconditional: it takes the slot the quantity held, and everything after it
+        // shifts right by LabelWidth + Gap, spilling into empty space rather than ever dropping it.
+        var labelX = line.xMin - Gap - QtyWidth;
+        qtyLabel.SetActive(true);
+        Place(qtyLabel, host, labelX, y, LabelWidth, height);
+        Place(quantity, host, labelX + LabelWidth + Gap, y, QtyWidth, height);
 
         var eachWidth = Width(each, EachMinWidth);
-        Place(each.gameObject, host, line.xMin, y, eachWidth, height);
+        Place(each.gameObject, host, line.xMin + LabelWidth + Gap, y, eachWidth, height);
 
-        var totalX = Mathf.Max(suffix.xMax, line.xMin + eachWidth) + Gap * 2f;
+        var totalX = Mathf.Max(suffix.xMax, line.xMin + eachWidth) + LabelWidth + Gap + Gap * 2f;
         var totalWidth = Width(total, TotalMinWidth);
         Place(total.gameObject, host, totalX, y, totalWidth, height);
 
-        if (!showLabel) {
-            Plugin.Log.LogWarning($"[C7] weight line has {room:0.#}px left of the figure; QTY label dropped");
-        }
         if (totalX + totalWidth > host.rect.xMax) {
             Plugin.Log.LogWarning($"[C7] line runs to {totalX + totalWidth:0.#}px past host edge {host.rect.xMax:0.#}px");
         }
