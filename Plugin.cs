@@ -6,6 +6,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using QoLarExpanse.Config;
 using QoLarExpanse.Core;
+using QoLarExpanse.Shared;
 
 namespace QoLarExpanse;
 
@@ -19,7 +20,7 @@ public class Plugin : BaseUnityPlugin {
         Services.Init(new Configuration(Config)); // must precede patching: patch Prepare() reads Services.Config
 
         PatchAllIsolated();
-        // TODO: HotkeyRouter.Ensure()
+        HotkeyRouter.Ensure();
         Log.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} loaded.");
     }
 
