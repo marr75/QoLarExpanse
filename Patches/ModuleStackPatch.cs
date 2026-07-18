@@ -16,7 +16,9 @@ namespace QoLarExpanse.Patches;
 
 // Collapses duplicate module rows into one stacked row after the stock rebuild: surplus rows are
 // hidden, never suppressed, so each keeps its dropdown selection and GetAvailableCountOffSpaceModule
-// stays honest. The representative gains "QTY: [n]  <per-unit> EA  <total>" on the WEIGHT line.
+// stays honest. The representative's WEIGHT line is replaced wholesale with "QTY: [n]  EA: 15T  165T":
+// the stock figure is hidden rather than interleaved with, because tonsTextModulese is a CHILD of
+// moduleWeightMeshPro and every clone of it dragged a stray "T" along.
 [HarmonyPatch(typeof(ResourcesList), nameof(ResourcesList.SetData))]
 static class ModuleStackPatch {
     const string QtyLabel = "StackQtyLabel";
@@ -26,8 +28,11 @@ static class ModuleStackPatch {
     const float Gap = 6f;
     const float QtyWidth = 54f;
     const float LabelWidth = 46f;
-    const float EachWidth = 26f;
-    const float TotalWidth = 64f;
+    const float EachMinWidth = 60f;
+    const float TotalMinWidth = 40f;
+    const float Inset = 4f;
+    const float RuleMaxHeight = 6f;
+    const float RuleMinWidth = 40f;
 
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
 
@@ -59,6 +64,10 @@ static class ModuleStackPatch {
         if (row.modules != null) {
             CargoListOps.StripInjected(row.modules.transform);
         }
+        // Only module rows get the stock figure back: SetData deliberately hides it on resource rows.
+        if (row.moduleWeightMeshPro != null && CargoListOps.CargoOf(row) is { resourceTypeType: EResourceTypeType.modules }) {
+            row.moduleWeightMeshPro.gameObject.SetActive(true);
+        }
     }
 
     static void Stamp(ResourcesList list, StackEntry entry) {
@@ -72,7 +81,17 @@ static class ModuleStackPatch {
         }
 
         var host = weight.transform.parent as RectTransform ?? (RectTransform)row.modules.transform;
+        var line = LocalRect((RectTransform)weight.transform, host);
+        var suffix = tons == null ? line : LocalRect((RectTransform)tons!.transform, host);
+        var unit = tons == null ? "T" : tons!.text;
         var count = entry.Group.Count;
+
+        // Own the whole line rather than interleaving: tons is parented under weight, so any reuse of
+        // the stock pair doubles the suffix and lands it on a different baseline.
+        weight.gameObject.SetActive(false);
+        if (tons != null) {
+            tons!.gameObject.SetActive(false);
+        }
 
         var qtyLabel = Label(host, QtyLabel, weight, "QTY:");
         GameObject quantity;
@@ -83,19 +102,22 @@ static class ModuleStackPatch {
         } else {
             quantity = Label(host, Quantity, weight, count.ToString()).gameObject;
         }
-        var each = Label(host, EachLabel, weight, "EA");
-        var total = Label(host, TotalLabel, weight, Total(entry.Group, tons));
+        var each = Label(host, EachLabel, weight, $"EA: {Mass(entry.Group.Representative)}{unit}");
+        var total = Label(host, TotalLabel, weight, $"{Total(entry.Group)}{unit}");
 
         if (host.GetComponent<LayoutGroup>() != null) {
-            Flow(host, weight, tons, qtyLabel.gameObject, quantity, each.gameObject, total.gameObject);
+            Flow(host, weight, qtyLabel.gameObject, quantity, each, total);
             return;
         }
-        Absolute(host, weight, tons, qtyLabel.gameObject, quantity, each.gameObject, total.gameObject);
+        Absolute(host, line, suffix, qtyLabel.gameObject, quantity, each, total);
     }
 
-    // Total is summed over members and cast once; N x the int-cast per-unit display drifts whenever
-    // module mass is fractional. The tons suffix is inlined in the stock suffix colour.
-    static string Total(CargoGroup group, TextMeshProUGUI? tons) {
+    static int Mass(Cargo cargo) =>
+        cargo.moduleData == null ? 0 : (int)cargo.moduleData.GetMass(MonoBehaviourSingleton<GameManager>.Instance.Player);
+
+    // Summed over members and cast once; N x the int-cast per-unit display drifts whenever module
+    // mass is fractional.
+    static int Total(CargoGroup group) {
         var player = MonoBehaviourSingleton<GameManager>.Instance.Player;
         var mass = 0.0;
         foreach (var member in group.Members) {
@@ -103,8 +125,7 @@ static class ModuleStackPatch {
                 mass += member.moduleData.GetMass(player);
             }
         }
-        var text = ((int)mass).ToString();
-        return tons == null ? text : $"{text}<color=#{ColorUtility.ToHtmlStringRGB(tons.color)}>{tons.text}</color>";
+        return (int)mass;
     }
 
     static TextMeshProUGUI Label(RectTransform host, string name, TextMeshProUGUI source, string text) {
@@ -114,15 +135,21 @@ static class ModuleStackPatch {
         return tmp;
     }
 
+    // Every label clones the same source, so font, size, colour and baseline match by construction.
+    // The clone's children go: tonsTextModulese lives under moduleWeightMeshPro and would ride along
+    // as a stray "T" on its own baseline.
     static GameObject CloneLabel(Transform parent, TextMeshProUGUI source) {
         var clone = Object.Instantiate(source.gameObject, parent);
         clone.SetActive(true);
+        for (var i = clone.transform.childCount - 1; i >= 0; i--) {
+            Object.DestroyImmediate(clone.transform.GetChild(i).gameObject);
+        }
         var tmp = clone.GetComponent<TextMeshProUGUI>();
         tmp.alignment = TextAlignmentOptions.MidlineLeft;
         tmp.enableWordWrapping = false;
         tmp.raycastTarget = false;
-        tmp.richText = true;
-        foreach (var element in clone.GetComponentsInChildren<LayoutElement>(true)) {
+        var element = clone.GetComponent<LayoutElement>();
+        if (element != null) {
             Object.DestroyImmediate(element);
         }
         return clone;
@@ -156,11 +183,10 @@ static class ModuleStackPatch {
         }
     }
 
-    // Absolute branch: the WEIGHT line is expected to be hand-anchored, so the quantity cluster goes
-    // in the dead space left of the weight figure and the total cluster right of the tons suffix.
-    static void Absolute(RectTransform host, TextMeshProUGUI weight, TextMeshProUGUI? tons, GameObject qtyLabel, GameObject quantity, GameObject each, GameObject total) {
-        var line = LocalRect((RectTransform)weight.transform, host);
-        var suffix = tons == null ? line : LocalRect((RectTransform)tons!.transform, host);
+    // Absolute branch: the WEIGHT line is hand-anchored, so lay the four elements out left to right
+    // across the space the stock figure and its suffix used to occupy. Every element shares y and
+    // height; only x varies, which is what keeps the baselines flush.
+    static void Absolute(RectTransform host, Rect line, Rect suffix, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
         var height = Mathf.Max(line.height, 22f);
         var y = line.center.y;
 
@@ -173,30 +199,39 @@ static class ModuleStackPatch {
             Place(qtyLabel, host, inputX - Gap - LabelWidth, y, LabelWidth, height);
         }
 
-        var eachX = suffix.xMax + Gap * 2f;
-        Place(each, host, eachX, y, EachWidth, height);
-        Place(total, host, eachX + EachWidth + Gap, y, TotalWidth, height);
+        var eachWidth = Width(each, EachMinWidth);
+        Place(each.gameObject, host, line.xMin, y, eachWidth, height);
+
+        var totalX = Mathf.Max(suffix.xMax, line.xMin + eachWidth) + Gap * 2f;
+        var totalWidth = Width(total, TotalMinWidth);
+        Place(total.gameObject, host, totalX, y, totalWidth, height);
 
         if (!showLabel) {
             Plugin.Log.LogWarning($"[C7] weight line has {room:0.#}px left of the figure; QTY label dropped");
         }
+        if (totalX + totalWidth > host.rect.xMax) {
+            Plugin.Log.LogWarning($"[C7] line runs to {totalX + totalWidth:0.#}px past host edge {host.rect.xMax:0.#}px");
+        }
     }
 
     // Layout branch: a layout group owns x placement, so only order and preferred width are ours.
-    static void Flow(RectTransform host, TextMeshProUGUI weight, TextMeshProUGUI? tons, GameObject qtyLabel, GameObject quantity, GameObject each, GameObject total) {
+    static void Flow(RectTransform host, TextMeshProUGUI weight, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
         Sized(qtyLabel, LabelWidth);
         Sized(quantity, QtyWidth);
-        Sized(each, EachWidth);
-        Sized(total, TotalWidth);
+        Sized(each.gameObject, Width(each, EachMinWidth));
+        Sized(total.gameObject, Width(total, TotalMinWidth));
 
         var head = weight.transform.GetSiblingIndex();
         qtyLabel.transform.SetSiblingIndex(head);
         quantity.transform.SetSiblingIndex(head + 1);
-
-        var tail = (tons == null ? weight.transform : tons.transform).GetSiblingIndex();
-        each.transform.SetSiblingIndex(tail + 1);
-        total.transform.SetSiblingIndex(tail + 2);
+        each.transform.SetSiblingIndex(head + 2);
+        total.transform.SetSiblingIndex(head + 3);
         Plugin.Log.LogInfo($"[C7] layout-group branch on {host.name}");
+    }
+
+    static float Width(TextMeshProUGUI tmp, float min) {
+        tmp.ForceMeshUpdate();
+        return Mathf.Max(tmp.preferredWidth, min);
     }
 
     static void Sized(GameObject go, float width) {
