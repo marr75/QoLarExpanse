@@ -10,6 +10,10 @@ namespace QoLarExpanse.Shared;
 // Encodes the four enforced rules: idempotent CI_-prefixed injection, strip-before-reinject,
 // non-accumulating listeners, and a mutate-then-rebuild reentrancy guard. No C-feature
 // injects a GameObject, binds a listener, or resolves a row's Cargo outside these helpers.
+// Caveat (cost a full debug round in C6): SetSingleListener clears runtime listeners only.
+// Persistent, inspector-wired onClick calls survive it, so a clone of a stock game button
+// still fires stock behaviour — neutralize those with UnityEventCallState.Off per index
+// before RemoveAllListeners.
 static class CargoListOps {
     internal const string Prefix = "CI_";
 
