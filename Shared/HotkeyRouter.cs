@@ -2,7 +2,6 @@ using System.Linq;
 using Data;
 using Game.Info;
 using Game.UI;
-using Game.UI.Windows.Elements;
 using Game.UI.Windows.Elements.PlanMissionElements;
 using Game.UI.Windows.Windows;
 using Manager;
@@ -16,19 +15,6 @@ namespace QoLarExpanse.Shared;
 // Polls the navigation hotkeys every frame. Mirrors IntelController's Ensure() singleton pattern.
 sealed class HotkeyRouter : MonoBehaviour {
     static HotkeyRouter? _instance;
-
-    internal static void Ensure() {
-        if (_instance != null) { return; }
-        var gameObject = new GameObject(nameof(HotkeyRouter)) { hideFlags = HideFlags.HideAndDontSave };
-        DontDestroyOnLoad(gameObject);
-        _instance = gameObject.AddComponent<HotkeyRouter>();
-        Plugin.Log.LogInfo("QoLarExpanse hotkey router created.");
-    }
-
-    internal static bool TypingInField() {
-        var selected = EventSystem.current?.currentSelectedGameObject;
-        return selected != null && selected.activeInHierarchy && selected.GetComponent<TMP_InputField>() != null;
-    }
 
     void Update() {
         if (!Services.Config.MasterEnabled.Value || TypingInField()) { return; }
@@ -65,6 +51,19 @@ sealed class HotkeyRouter : MonoBehaviour {
         }
     }
 
+    internal static void Ensure() {
+        if (_instance != null) { return; }
+        var gameObject = new GameObject(nameof(HotkeyRouter)) { hideFlags = HideFlags.HideAndDontSave };
+        DontDestroyOnLoad(gameObject);
+        _instance = gameObject.AddComponent<HotkeyRouter>();
+        Plugin.Log.LogInfo("QoLarExpanse hotkey router created.");
+    }
+
+    internal static bool TypingInField() {
+        var selected = EventSystem.current?.currentSelectedGameObject;
+        return selected != null && selected.activeInHierarchy && selected.GetComponent<TMP_InputField>() != null;
+    }
+
     static bool SessionReadyToSaveOrLoad() =>
         !MonoBehaviourSingleton<GameManager>.InstanceIsNull
         && !SerializedMonoBehaviourSingleton<LoadSaveManager>.Instance.IsScheduledToLoadAfterMainSceneReload;
@@ -90,7 +89,8 @@ sealed class HotkeyRouter : MonoBehaviour {
         manager.LoadLastSave();
     }
 
-    static void OpenScreen(EWindowType windowType) => SerializedMonoBehaviourSingleton<UIManager>.Instance.Open(windowType);
+    static void OpenScreen(EWindowType windowType) =>
+        SerializedMonoBehaviourSingleton<UIManager>.Instance.Open(windowType);
 
     // Only report a body as selected while its info panel is actually the open primary window —
     // ObjectInfoCurrent is a session-lifetime static that keeps the last body after the panel closes.
@@ -121,7 +121,9 @@ sealed class HotkeyRouter : MonoBehaviour {
     }
 
     static PMTabDestination? CurrentPlanTab() =>
-        SerializedMonoBehaviourSingleton<UIManager>.Instance.Current is PlanMissionWindow window ? window.pmTabDestination : null;
+        SerializedMonoBehaviourSingleton<UIManager>.Instance.Current is PlanMissionWindow window
+            ? window.pmTabDestination
+            : null;
 
     static void TogglePlanOrbit(bool origin) {
         var tab = CurrentPlanTab();
@@ -130,9 +132,7 @@ sealed class HotkeyRouter : MonoBehaviour {
         var current = field.ObjectInfo;
         if (current == null) { return; }
         ObjectInfo? next;
-        if (current.objectTypes == EObjectTypes.Orbit) {
-            next = current.parentObjectInfo;
-        }
+        if (current.objectTypes == EObjectTypes.Orbit) { next = current.parentObjectInfo; }
         else {
             if (current.lowOrbitCustom == null) { return; }
             next = current.lowOrbitCustom.GetObjectInfo();
@@ -163,7 +163,9 @@ sealed class HotkeyRouter : MonoBehaviour {
         var tab = ActivePlanTab();
         if (tab == null) { return; }
         if (tab is PMTabSchedule scheduleTab) {
-            if (scheduleTab.schedule != null && scheduleTab.schedule.interactable) { scheduleTab.schedule.onClick.Invoke(); }
+            if (scheduleTab.schedule != null && scheduleTab.schedule.interactable) {
+                scheduleTab.schedule.onClick.Invoke();
+            }
             return;
         }
         if (tab.ButtonNextInteractable) { tab.buttonNext.onClick.Invoke(); }

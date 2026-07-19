@@ -7,7 +7,7 @@ namespace QoLarExpanse.Patches;
 
 // Suppress the contract-info window (and its prefab announce sound) that the load path auto-opens for
 // each restored player contract. Scoped to save extraction, so normal in-game contract popups still open.
-[HarmonyPatch(typeof(UIManager), nameof(UIManager.Open), new[] { typeof(EWindowType), typeof(object) })]
+[HarmonyPatch(typeof(UIManager), nameof(UIManager.Open), typeof(EWindowType), typeof(object))]
 static class OnLoadContractPatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.SuppressOnLoadContractEnabled.Value;
 

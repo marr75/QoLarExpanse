@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Info;
 using Game.ObjectInfoDataScripts;
 using Game.UI.Windows.Elements.PlanMissionElements;
 using HarmonyLib;
@@ -23,7 +24,13 @@ static class DropAllPatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.DropAllEnabled.Value;
 
     [HarmonyPostfix]
-    static void Postfix(ResourcesList __instance, CargoAll _cargos, Game.Info.ObjectInfo _start, Game.Info.ObjectInfo _target, PMTabCargo _tabCargo) {
+    static void Postfix(
+        ResourcesList __instance,
+        CargoAll _cargos,
+        ObjectInfo _start,
+        ObjectInfo _target,
+        PMTabCargo _tabCargo
+    ) {
         var wrench = __instance.buttonBuyModule;
         if (wrench == null || wrench.transform.parent == null) {
             Plugin.Log.LogError("[C6] buttonBuyModule missing; cannot anchor the title-row icon");
@@ -55,19 +62,23 @@ static class DropAllPatch {
         button.interactable = true;
         LogIcon(slot, button);
 
-        CargoListOps.SetSingleListener(button.onClick, () => CargoListOps.RunBatch(() => {
-            foreach (var cargo in assists) {
-                cargo.sendOnOrbitWhenAtoBtoC = true;
-            }
-            _cargos.InvokeFreeSpaceChange();
-            __instance.SetData(_cargos, _start, _target, _tabCargo);
-        }));
+        CargoListOps.SetSingleListener(
+            button.onClick,
+            () => CargoListOps.RunBatch(() => {
+                    foreach (var cargo in assists) { cargo.sendOnOrbitWhenAtoBtoC = true; }
+                    _cargos.InvokeFreeSpaceChange();
+                    __instance.SetData(_cargos, _start, _target, _tabCargo);
+                }
+            )
+        );
     }
 
     // An earlier build parented the icon into the ADD RESOURCES / ADD MODULES strip, where it
     // overlapped ADD MODULES. Remove any leftover so the strip is left untouched.
     static void DropStrays(ResourcesList panel, Transform keep) {
-        foreach (var host in new[] { panel.addSpecial, panel.addCargo, panel.addSpecialToOrbit, panel.addCargoToOrbit }) {
+        foreach (var host in new[] {
+                panel.addSpecial, panel.addCargo, panel.addSpecialToOrbit, panel.addCargoToOrbit,
+            }) {
             var parent = host == null ? null : host.transform.parent;
             if (parent == null || parent == keep) { continue; }
             var stray = parent.Find(CargoListOps.Prefixed(SlotName));
@@ -126,31 +137,48 @@ static class DropAllPatch {
             element.minWidth = element.preferredWidth = size.x;
             element.minHeight = element.preferredHeight = size.y;
             element.flexibleWidth = element.flexibleHeight = 0f;
-        } else {
+        }
+        else {
             if (element != null) { Object.DestroyImmediate(element); }
             rect.anchoredPosition = wrench.anchoredPosition + new Vector2(-(size.x + Gap), 0f);
         }
         rect.SetSiblingIndex(wrench.GetSiblingIndex());
     }
 
-    static void LogScan(ResourcesList panel, Transform titleRow, RectTransform wrench, List<Cargo>? assists, Button? template) {
+    static void LogScan(
+        ResourcesList panel,
+        Transform titleRow,
+        RectTransform wrench,
+        List<Cargo>? assists,
+        Button? template
+    ) {
         var carryover = 0;
         foreach (var row in panel.listResorces) {
             if (row != null && CargoListOps.CargoOf(row) is { fromAtoBtoC: true }) { carryover++; }
         }
         var group = titleRow.GetComponent<LayoutGroup>();
-        Plugin.Log.LogInfo($"[C6] scan rows={panel.listResorces.Count} carryover={carryover} assists={assists?.Count ?? -1} template={(template == null ? "none" : template.name)}");
-        Plugin.Log.LogInfo($"[C6] titleRow={titleRow.name} layoutGroup={(group == null ? "none" : group.GetType().Name)} wrench={wrench.name} index={wrench.GetSiblingIndex()} size={wrench.rect.size} anchors={wrench.anchorMin}/{wrench.anchorMax} pivot={wrench.pivot} pos={wrench.anchoredPosition}");
+        Plugin.Log.LogInfo(
+            $"[C6] scan rows={panel.listResorces.Count} carryover={carryover} assists={assists?.Count ?? -1} template={(template == null ? "none" : template.name)}"
+        );
+        Plugin.Log.LogInfo(
+            $"[C6] titleRow={titleRow.name} layoutGroup={(group == null ? "none" : group.GetType().Name)} wrench={wrench.name} index={wrench.GetSiblingIndex()} size={wrench.rect.size} anchors={wrench.anchorMin}/{wrench.anchorMax} pivot={wrench.pivot} pos={wrench.anchoredPosition}"
+        );
 
         for (var i = 0; i < titleRow.childCount; i++) {
             var child = titleRow.GetChild(i);
-            Plugin.Log.LogInfo($"[C6] titleRow[{i}] name={child.name} activeSelf={child.gameObject.activeSelf} activeInHierarchy={child.gameObject.activeInHierarchy}");
+            Plugin.Log.LogInfo(
+                $"[C6] titleRow[{i}] name={child.name} activeSelf={child.gameObject.activeSelf} activeInHierarchy={child.gameObject.activeInHierarchy}"
+            );
         }
     }
 
     static void LogIcon(GameObject slot, Button button) {
         var rect = (RectTransform)slot.transform;
-        Plugin.Log.LogInfo($"[C6] icon active={slot.activeInHierarchy} interactable={button.interactable} parent={rect.parent.name} index={rect.GetSiblingIndex()} layoutElement={slot.GetComponent<LayoutElement>() != null}");
-        Plugin.Log.LogInfo($"[C6] icon size={rect.rect.size} sizeDelta={rect.sizeDelta} scale={rect.localScale} anchors={rect.anchorMin}/{rect.anchorMax} pivot={rect.pivot} pos={rect.anchoredPosition}");
+        Plugin.Log.LogInfo(
+            $"[C6] icon active={slot.activeInHierarchy} interactable={button.interactable} parent={rect.parent.name} index={rect.GetSiblingIndex()} layoutElement={slot.GetComponent<LayoutElement>() != null}"
+        );
+        Plugin.Log.LogInfo(
+            $"[C6] icon size={rect.rect.size} sizeDelta={rect.sizeDelta} scale={rect.localScale} anchors={rect.anchorMin}/{rect.anchorMax} pivot={rect.pivot} pos={rect.anchoredPosition}"
+        );
     }
 }

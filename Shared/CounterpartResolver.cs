@@ -25,7 +25,9 @@ static class CounterpartResolver {
         else if (window.Open && window.ObjectInfoCurrent == target) {
             MonoBehaviourSingleton<MyCameraController>.Instance.ChangeTarget(target.gameObject.transform);
         }
-        else if (!window.Open) { SerializedMonoBehaviourSingleton<UIManager>.Instance.Open(EWindowType.ObjectInfo, target); }
+        else if (!window.Open) {
+            SerializedMonoBehaviourSingleton<UIManager>.Instance.Open(EWindowType.ObjectInfo, target);
+        }
     }
 
     internal static void ToggleCurrentWindow() {

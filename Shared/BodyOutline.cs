@@ -26,9 +26,11 @@ static class BodyOutline {
         var solarOrbit = all.FirstOrDefault(o => o != null && o.objectTypes == EObjectTypes.SolarOrbit);
         if (solarOrbit != null) { list.Add(solarOrbit); }
 
-        list.AddRange(all
-            .Where(o => o != null && o.objectTypes == EObjectTypes.Planet)
-            .OrderBy(o => o.SolarBody.a));
+        list.AddRange(
+            all
+                .Where(o => o != null && o.objectTypes == EObjectTypes.Planet)
+                .OrderBy(o => o.SolarBody.a)
+        );
         return list;
     }
 
@@ -39,7 +41,8 @@ static class BodyOutline {
     }
 
     internal static void Step(int dir, bool moons) {
-        var current = SerializedMonoBehaviourSingleton<UIManager>.Instance.GetWindow<ObjectInfoWindow>().ObjectInfoCurrent;
+        var current = SerializedMonoBehaviourSingleton<UIManager>.Instance.GetWindow<ObjectInfoWindow>()
+            .ObjectInfoCurrent;
         if (moons) { StepMoons(dir, current); }
         else { StepOutline(dir, current); }
     }
@@ -67,7 +70,9 @@ static class BodyOutline {
         var favorites = Favorites();
         if (InFavorites(current, favorites)) {
             var fi = favorites.IndexOf(current);
-            var favNext = fi < 0 ? favorites[dir > 0 ? 0 : favorites.Count - 1] : favorites[(fi + dir + favorites.Count) % favorites.Count];
+            var favNext = fi < 0
+                ? favorites[dir > 0 ? 0 : favorites.Count - 1]
+                : favorites[(fi + dir + favorites.Count) % favorites.Count];
             Select(favNext);
             return;
         }

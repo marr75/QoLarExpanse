@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,7 @@ using UIPlanMissionElements;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace QoLarExpanse.Patches;
 
@@ -43,37 +45,28 @@ static class ModuleStackPatch {
         var stacked = new HashSet<ResorceRow>(plan.Stacks.Select(s => s.Row));
 
         foreach (var row in plan.Rows) {
-            if (!stacked.Contains(row)) {
-                Strip(row);
-            }
+            if (!stacked.Contains(row)) { Strip(row); }
             row.gameObject.SetActive(true);
         }
-        foreach (var row in plan.Hidden) {
-            row.gameObject.SetActive(false);
-        }
-        foreach (var entry in plan.Stacks) {
-            Stamp(__instance, entry);
-        }
+        foreach (var row in plan.Hidden) { row.gameObject.SetActive(false); }
+        foreach (var entry in plan.Stacks) { Stamp(__instance, entry); }
     }
 
     // Multi-member stacks no longer support retype (feature retired); their TYPE dropdown stays
     // locked. Resolved fresh from the live cargo lists — never cached. False when stacking is off,
     // so the AddAny unlock sweep can call it unconditionally.
     internal static bool IsMultiMemberStackRow(ResorceRow row) {
-        if (!Services.Config.ModuleStackEnabled.Value || !row) {
-            return false;
-        }
+        if (!Services.Config.ModuleStackEnabled.Value || !row) { return false; }
         var cargo = CargoListOps.CargoOf(row);
         return CargoStacking.IsMultiStackMember(cargo, cargo?.CargoAll);
     }
 
     static void Strip(ResorceRow row) {
         CargoListOps.StripRow(row);
-        if (row.modules != null) {
-            CargoListOps.StripInjected(row.modules.transform);
-        }
+        if (row.modules != null) { CargoListOps.StripInjected(row.modules.transform); }
         // Only module rows get the stock figure back: SetData deliberately hides it on resource rows.
-        if (row.moduleWeightMeshPro != null && CargoListOps.CargoOf(row) is { resourceTypeType: EResourceTypeType.modules }) {
+        if (row.moduleWeightMeshPro != null
+            && CargoListOps.CargoOf(row) is { resourceTypeType: EResourceTypeType.modules }) {
             row.moduleWeightMeshPro.gameObject.SetActive(true);
         }
     }
@@ -84,9 +77,7 @@ static class ModuleStackPatch {
 
         var weight = row.moduleWeightMeshPro;
         var tons = row.tonsTextModulese;
-        if (weight == null || row.modules == null) {
-            return;
-        }
+        if (weight == null || row.modules == null) { return; }
 
         // Retype is retired for multi-member stacks: lock the TYPE dropdown so the stock handler
         // can't convert only the representative and desync the hidden members.
@@ -104,9 +95,7 @@ static class ModuleStackPatch {
         // Own the whole line rather than interleaving: tons is parented under weight, so any reuse of
         // the stock pair doubles the suffix and lands it on a different baseline.
         weight.gameObject.SetActive(false);
-        if (tons != null) {
-            tons!.gameObject.SetActive(false);
-        }
+        if (tons != null) { tons!.gameObject.SetActive(false); }
 
         // Span the underline BEFORE parenting children so the group's first pass has a real width.
         var cluster = MakeCluster(host, weight, line, rule);
@@ -114,9 +103,8 @@ static class ModuleStackPatch {
         if (entry.Editable) {
             var field = Input(cluster, row, count);
             CargoListOps.SetSingleListener(field.onEndEdit, _ => Commit(list, row, entry.Group, field));
-        } else {
-            Label(cluster, Quantity, weight, count.ToString());
         }
+        else { Label(cluster, Quantity, weight, count.ToString()); }
         Label(cluster, EachLabel, weight, $"EA: {Mass(entry.Group.Representative)}{unit}");
         Label(cluster, TotalLabel, weight, $"{Total(entry.Group)}{unit}");
 
@@ -140,9 +128,7 @@ static class ModuleStackPatch {
         rect.anchoredPosition = new Vector2(span.xMin, line.center.y) - host.rect.min;
         // If the host runs its own layout group it owns our x; take the hidden figure's slot and let
         // the container's own group report its preferred size upward.
-        if (host.GetComponent<LayoutGroup>() != null) {
-            rect.SetSiblingIndex(weight.transform.GetSiblingIndex());
-        }
+        if (host.GetComponent<LayoutGroup>() != null) { rect.SetSiblingIndex(weight.transform.GetSiblingIndex()); }
         return rect;
     }
 
@@ -166,7 +152,9 @@ static class ModuleStackPatch {
         Rect.MinMaxRect(line.xMin - Gap * 2f - QtyWidth - Inset, line.yMin, host.rect.xMax, line.yMax);
 
     static int Mass(Cargo cargo) =>
-        cargo.moduleData == null ? 0 : (int)cargo.moduleData.GetMass(MonoBehaviourSingleton<GameManager>.Instance.Player);
+        cargo.moduleData == null
+            ? 0
+            : (int)cargo.moduleData.GetMass(MonoBehaviourSingleton<GameManager>.Instance.Player);
 
     // Summed over members and cast once; N x the int-cast per-unit display drifts whenever module
     // mass is fractional.
@@ -174,9 +162,7 @@ static class ModuleStackPatch {
         var player = MonoBehaviourSingleton<GameManager>.Instance.Player;
         var mass = 0.0;
         foreach (var member in group.Members) {
-            if (member.moduleData != null) {
-                mass += member.moduleData.GetMass(player);
-            }
+            if (member.moduleData != null) { mass += member.moduleData.GetMass(player); }
         }
         return (int)mass;
     }
@@ -205,9 +191,7 @@ static class ModuleStackPatch {
         tmp.enableWordWrapping = false;
         tmp.raycastTarget = false;
         var element = clone.GetComponent<LayoutElement>();
-        if (element != null) {
-            Object.DestroyImmediate(element);
-        }
+        if (element != null) { Object.DestroyImmediate(element); }
         return clone;
     }
 
@@ -257,40 +241,26 @@ static class ModuleStackPatch {
         Rect? best = null;
         foreach (var graphic in scanRoot.GetComponentsInChildren<Graphic>(true)) {
             var rect = LocalRect((RectTransform)graphic.transform, host);
-            if (RejectReason(graphic, host, rect, line) != null) {
-                continue;
-            }
-            if (best == null || rect.width > best.Value.width) {
-                best = rect;
-            }
+            if (RejectReason(graphic, host, rect, line) != null) { continue; }
+            if (best == null || rect.width > best.Value.width) { best = rect; }
         }
         return best;
     }
 
     static string? RejectReason(Graphic graphic, RectTransform host, Rect rect, Rect line) {
-        if (graphic is TMP_Text) {
-            return "tmpText";
-        }
-        if (Injected(graphic.transform, host)) {
-            return "injected";
-        }
+        if (graphic is TMP_Text) { return "tmpText"; }
+        if (Injected(graphic.transform, host)) { return "injected"; }
         if (Mathf.Abs(rect.center.y - line.center.y) > Mathf.Max(1.5f * Mathf.Abs(line.height), 24f)) {
             return "offLine";
         }
-        if (rect.height > RuleMaxHeight) {
-            return "tooTall";
-        }
-        if (rect.width < RuleMinWidth) {
-            return "tooNarrow";
-        }
+        if (rect.height > RuleMaxHeight) { return "tooTall"; }
+        if (rect.width < RuleMinWidth) { return "tooNarrow"; }
         return null;
     }
 
     static bool Injected(Transform target, Transform host) {
         for (var cur = target; cur != null && cur != host; cur = cur.parent) {
-            if (cur.name.StartsWith(CargoListOps.Prefix, System.StringComparison.Ordinal)) {
-                return true;
-            }
+            if (cur.name.StartsWith(CargoListOps.Prefix, StringComparison.Ordinal)) { return true; }
         }
         return false;
     }
@@ -305,9 +275,7 @@ static class ModuleStackPatch {
 
     static void Commit(ResourcesList list, ResorceRow row, CargoGroup group, TMP_InputField field) {
         var count = group.Count;
-        if (list.tabCargo == null) {
-            return;
-        }
+        if (list.tabCargo == null) { return; }
 
         if (!int.TryParse(field.text, out var target)) {
             field.SetTextWithoutNotify(count.ToString());
@@ -319,42 +287,33 @@ static class ModuleStackPatch {
         var free = info && module != null ? (int)info!.GetAvailableCountOffSpaceModule(module) : 0;
         target = Mathf.Clamp(target, 1, count + Mathf.Max(free, 0));
         field.SetTextWithoutNotify(target.ToString());
-        if (target == count || module == null) {
-            return;
-        }
+        if (target == count || module == null) { return; }
 
         // Every delete fires onDestroing, which mutates listResorces; resolve the doomed rows first.
         var doomed = new List<(Cargo cargo, ResorceRow? row)>();
         if (target < count) {
-            foreach (var cargo in group.Members.Skip(target)) {
-                doomed.Add((cargo, RowOf(list, cargo)));
-            }
+            foreach (var cargo in group.Members.Skip(target)) { doomed.Add((cargo, RowOf(list, cargo))); }
         }
 
         CargoListOps.RunBatch(() => {
-            if (target > count) {
-                var crewValueToZero = CrewValueToZero(list);
-                for (var i = 0; i < target - count; i++) {
-                    list.tabCargo.AddCargo(module, false, crewValueToZero);
+                if (target > count) {
+                    var crewValueToZero = CrewValueToZero(list);
+                    for (var i = 0; i < target - count; i++) { list.tabCargo.AddCargo(module, false, crewValueToZero); }
                 }
-            } else {
-                foreach (var (cargo, victim) in doomed) {
-                    if (victim) {
-                        victim!.OnButtonClickDeletePublic();
-                    } else {
-                        cargo.Delete();
+                else {
+                    foreach (var (cargo, victim) in doomed) {
+                        if (victim) { victim!.OnButtonClickDeletePublic(); }
+                        else { cargo.Delete(); }
                     }
                 }
+                list.tabCargo.SetDataResourcesList();
             }
-            list.tabCargo.SetDataResourcesList();
-        });
+        );
     }
 
     static ResorceRow? RowOf(ResourcesList list, Cargo cargo) {
         foreach (var row in list.listResorces) {
-            if (row && CargoListOps.CargoOf(row) == cargo) {
-                return row;
-            }
+            if (row && CargoListOps.CargoOf(row) == cargo) { return row; }
         }
         return null;
     }
@@ -381,9 +340,12 @@ static class ModuleStackRebuildPatch {
 
     [HarmonyPostfix]
     static void Postfix(ResourcesList __instance) {
-        if (queued || CargoListOps.InBatch || CargoListOps.InStockRebuild || !__instance || !__instance.isActiveAndEnabled || __instance.tabCargo == null) {
-            return;
-        }
+        if (queued
+            || CargoListOps.InBatch
+            || CargoListOps.InStockRebuild
+            || !__instance
+            || !__instance.isActiveAndEnabled
+            || __instance.tabCargo == null) { return; }
         queued = true;
         __instance.StartCoroutine(Rebuild(__instance));
     }
@@ -393,9 +355,7 @@ static class ModuleStackRebuildPatch {
     static IEnumerator Rebuild(ResourcesList list) {
         yield return new WaitForEndOfFrame();
         queued = false;
-        if (!list || list.tabCargo == null) {
-            yield break;
-        }
+        if (!list || list.tabCargo == null) { yield break; }
         CargoListOps.RunBatch(() => list.tabCargo.SetDataResourcesList());
     }
 }
@@ -408,12 +368,10 @@ static class ModuleStackRebuildPatch {
 static class StockRebuildGuardPatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value;
 
-    [HarmonyPrefix]
-    [HarmonyPriority(Priority.First)]
+    [HarmonyPrefix, HarmonyPriority(Priority.First)]
     static void Prefix() => CargoListOps.BeginStockRebuild();
 
-    [HarmonyFinalizer]
-    [HarmonyPriority(Priority.Last)]
+    [HarmonyFinalizer, HarmonyPriority(Priority.Last)]
     static void Finalizer() => CargoListOps.EndStockRebuild();
 }
 
@@ -425,12 +383,10 @@ static class StockRebuildGuardPatch {
 static class ModuleAddCollapsePatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
 
-    [HarmonyPostfix]
-    [HarmonyPatch(nameof(ResourcesList.OnClickAddSpecial))]
+    [HarmonyPostfix, HarmonyPatch(nameof(ResourcesList.OnClickAddSpecial))]
     static void AfterAdd(ResourcesList __instance, Cargo _cargo) => Rebuild(__instance, _cargo);
 
-    [HarmonyPostfix]
-    [HarmonyPatch(nameof(ResourcesList.OnClickAddSpecialToOrbit))]
+    [HarmonyPostfix, HarmonyPatch(nameof(ResourcesList.OnClickAddSpecialToOrbit))]
     static void AfterAddToOrbit(ResourcesList __instance, Cargo _cargo) => Rebuild(__instance, _cargo);
 
     // Only the button wiring (OnClickAddSpecial2/2ToOrbit, ResourcesList.cs:236-244) calls with no
@@ -455,24 +411,19 @@ static class ModuleStackGravityAssistPatch {
     static void Postfix(ResorceRow __instance) {
         var cargo = CargoListOps.CargoOf(__instance);
         var owner = cargo?.CargoAll;
-        if (owner?.listCargoGravityAssists == null || !CargoStacking.IsStackable(cargo, owner)) {
-            return;
-        }
+        if (owner?.listCargoGravityAssists == null || !CargoStacking.IsStackable(cargo, owner)) { return; }
 
         var members = owner.listCargoGravityAssists
             .Where(c => CargoStacking.IsStackable(c, owner))
             .Where(c => c.moduleData == cargo!.moduleData)
             .ToList();
-        if (members.Count < 2) {
-            return;
-        }
+        if (members.Count < 2) { return; }
 
         CargoListOps.RunBatch(() => {
-            foreach (var member in members) {
-                member.sendOnOrbitWhenAtoBtoC = cargo!.sendOnOrbitWhenAtoBtoC;
+                foreach (var member in members) { member.sendOnOrbitWhenAtoBtoC = cargo!.sendOnOrbitWhenAtoBtoC; }
+                owner.InvokeFreeSpaceChange();
             }
-            owner.InvokeFreeSpaceChange();
-        });
+        );
     }
 }
 
@@ -491,17 +442,13 @@ static class SingleModuleRetypeRebuildPatch {
 
     [HarmonyPostfix]
     static void Postfix(ResorceRow __instance, SpaceModuleDescriptor? __state) {
-        if (CargoListOps.InBatch || CargoListOps.InStockRebuild) {
-            return;
-        }
+        if (CargoListOps.InBatch || CargoListOps.InStockRebuild) { return; }
         var cargo = CargoListOps.CargoOf(__instance);
         if (cargo == null || cargo.moduleData == __state || ModuleStackPatch.IsMultiMemberStackRow(__instance)) {
             return;
         }
         var parent = __instance.resourcesListParent;
-        if (!parent || parent.tabCargo == null) {
-            return;
-        }
+        if (!parent || parent.tabCargo == null) { return; }
         CargoListOps.RunBatch(() => parent.tabCargo.SetDataResourcesList());
     }
 }

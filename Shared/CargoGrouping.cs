@@ -21,19 +21,19 @@ static class CargoGrouping {
     // ResourceDefinition asset; resourceTypeType selects which discriminator applies.
     static (EResourceTypeType type, object discriminator) KeyOf(Cargo c) =>
         (c.resourceTypeType,
-            c.resourceTypeType == EResourceTypeType.modules ? c.moduleData : (object)c.resourceType);
+            c.resourceTypeType == EResourceTypeType.modules ? c.moduleData : c.resourceType);
 }
 
 sealed class CargoGroup {
-    internal EResourceTypeType ResourceTypeType { get; }
-    internal object Key { get; }
-    internal IReadOnlyList<Cargo> Members { get; }
-    internal Cargo Representative => Members[0];
-    internal int Count => Members.Count;
-
     internal CargoGroup(EResourceTypeType resourceTypeType, object key, IReadOnlyList<Cargo> members) {
         ResourceTypeType = resourceTypeType;
         Key = key;
         Members = members;
     }
+
+    internal EResourceTypeType ResourceTypeType { get; }
+    internal object Key { get; }
+    internal IReadOnlyList<Cargo> Members { get; }
+    internal Cargo Representative { get => Members[0]; }
+    internal int Count { get => Members.Count; }
 }

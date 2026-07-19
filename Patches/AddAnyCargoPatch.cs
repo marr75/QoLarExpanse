@@ -22,37 +22,29 @@ static class AddAnyCargoPatch {
 static class KeepEveryModuleRowUnlockedPatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.AddAnyEnabled.Value;
 
-    [HarmonyPostfix]
-    [HarmonyPatch(nameof(ResourcesList.OnClickAddSpecial))]
+    [HarmonyPostfix, HarmonyPatch(nameof(ResourcesList.OnClickAddSpecial))]
     static void AfterAdd(ResourcesList __instance) => Unlock(__instance);
 
-    [HarmonyPostfix]
-    [HarmonyPatch(nameof(ResourcesList.OnClickAddSpecialToOrbit))]
+    [HarmonyPostfix, HarmonyPatch(nameof(ResourcesList.OnClickAddSpecialToOrbit))]
     static void AfterAddToOrbit(ResourcesList __instance) => Unlock(__instance);
 
-    [HarmonyPostfix]
-    [HarmonyPatch(nameof(ResourcesList.ResorceOnonDestroing))]
+    [HarmonyPostfix, HarmonyPatch(nameof(ResourcesList.ResorceOnonDestroing))]
     static void AfterRemove(ResourcesList __instance) => Unlock(__instance);
 
     // Deliberately leaves sliderCrew alone: its interactability is the real life-support guard set by
     // ModuleDropDownOnonValueChange, which the stock UnBlockDropDown would clobber.
     static void Unlock(ResourcesList list) {
-        if (!list || list.listResorces == null) {
-            return;
-        }
+        if (!list || list.listResorces == null) { return; }
 
         foreach (var row in list.listResorces) {
-            if (!row || row.cargo is not { resourceTypeType: EResourceTypeType.modules } cargo) {
-                continue;
-            }
+            if (!row || row.cargo is not { resourceTypeType: EResourceTypeType.modules } cargo) { continue; }
 
             if (row.moduleDropDown && row.moduleDropDown.dropDown) {
-                row.moduleDropDown.dropDown.interactable = !cargo.fromAtoBtoC && !ModuleStackPatch.IsMultiMemberStackRow(row);
+                row.moduleDropDown.dropDown.interactable =
+                    !cargo.fromAtoBtoC && !ModuleStackPatch.IsMultiMemberStackRow(row);
             }
 
-            if (row.butonDelete) {
-                row.butonDelete.interactable = true;
-            }
+            if (row.butonDelete) { row.butonDelete.interactable = true; }
 
             row.RefreshAddMulti();
         }
@@ -67,17 +59,16 @@ static class AddMultiOnEveryRowPatch {
 
     [HarmonyPrefix]
     static bool Prefix(ResorceRow __instance) {
-        if (!__instance.addMulti) {
-            return false;
-        }
+        if (!__instance.addMulti) { return false; }
 
         var cargo = __instance.cargo;
         var info = __instance.objectInfo?.GetObjectInfo();
         var module = cargo?.SourceModule;
-        var show = info && module != null
-                        && cargo!.resourceTypeType == EResourceTypeType.modules
-                        && !cargo.fromAtoBtoC
-                        && info!.GetAvailableCountOffSpaceModule(module) > 0L;
+        var show = info
+            && module != null
+            && cargo!.resourceTypeType == EResourceTypeType.modules
+            && !cargo.fromAtoBtoC
+            && info!.GetAvailableCountOffSpaceModule(module) > 0L;
         __instance.addMulti.gameObject.SetActive(show);
         return false;
     }

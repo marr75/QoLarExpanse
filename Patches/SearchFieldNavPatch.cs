@@ -10,7 +10,8 @@ static class SearchFieldNavPatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.SearchNavigationEnabled.Value;
 
     [HarmonyPostfix]
-    static void Postfix(ObjectSearchInputField __instance) => __instance.gameObject.AddComponent<SearchNav>().Bind(__instance);
+    static void Postfix(ObjectSearchInputField __instance) =>
+        __instance.gameObject.AddComponent<SearchNav>().Bind(__instance);
 }
 
 // Vanilla OnSubmit always commits suggestion index 0; honor the tracked highlight instead when one exists.

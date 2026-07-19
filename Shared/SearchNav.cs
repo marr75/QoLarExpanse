@@ -13,20 +13,19 @@ namespace QoLarExpanse.Shared;
 // focused (its TypingInField gate) — there's no global hotkey path to ride while typing here.
 sealed class SearchNav : MonoBehaviour {
     static readonly FieldInfo? ItemsField = AccessTools.Field(typeof(TMP_Dropdown), "m_Items");
-    static readonly PropertyInfo? ToggleProp = AccessTools.Property(AccessTools.Inner(typeof(TMP_Dropdown), "DropdownItem"), "toggle");
+
+    static readonly PropertyInfo? ToggleProp = AccessTools.Property(
+        AccessTools.Inner(typeof(TMP_Dropdown), "DropdownItem"),
+        "toggle"
+    );
+
+    TMP_Dropdown? _dropdown;
 
     ObjectSearchInputField? _field;
-    TMP_InputField? _input;
-    TMP_Dropdown? _dropdown;
     int _hi = -1;
+    TMP_InputField? _input;
     int _lastOptionCount;
     bool _navigated;
-
-    internal void Bind(ObjectSearchInputField field) {
-        _field = field;
-        _input = field.Input1;
-        _dropdown = field.itemsSearch;
-    }
 
     void Update() {
         if (_field == null || _input == null || _dropdown == null || !_dropdown.IsExpanded) { return; }
@@ -42,7 +41,15 @@ sealed class SearchNav : MonoBehaviour {
         if (Input.GetKeyDown(KeyCode.DownArrow)) { SetHighlight(_navigated ? _hi + 1 : _hi, options.Count); }
         if (Input.GetKeyDown(KeyCode.UpArrow)) { SetHighlight(_navigated ? _hi - 1 : _hi, options.Count); }
         // Selection now lives on a toggle, so the field's onSubmit won't fire — commit Enter here instead.
-        if (_navigated && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))) { TryCommitHighlighted(); }
+        if (_navigated && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))) {
+            TryCommitHighlighted();
+        }
+    }
+
+    internal void Bind(ObjectSearchInputField field) {
+        _field = field;
+        _input = field.Input1;
+        _dropdown = field.itemsSearch;
     }
 
     void SetHighlight(int index, int count) {

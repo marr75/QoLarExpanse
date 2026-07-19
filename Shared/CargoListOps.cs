@@ -3,6 +3,7 @@ using Game.ObjectInfoDataScripts;
 using UIPlanMissionElements;
 using UnityEngine;
 using UnityEngine.Events;
+using Object = UnityEngine.Object;
 
 namespace QoLarExpanse.Shared;
 
@@ -38,12 +39,8 @@ static class CargoListOps {
             return;
         }
         InBatch = true;
-        try {
-            body();
-        }
-        finally {
-            InBatch = false;
-        }
+        try { body(); }
+        finally { InBatch = false; }
     }
 
     // Rule 1 — idempotent find-or-create injection. The factory instantiates the widget under
@@ -57,27 +54,22 @@ static class CargoListOps {
     internal static GameObject EnsureChild(Transform parent, string name, Func<Transform, GameObject> create) {
         var ciName = Prefixed(name);
         var existing = parent.Find(ciName);
-        if (existing != null) {
-            return existing.gameObject;
-        }
+        if (existing != null) { return existing.gameObject; }
         var child = create(parent);
         child.name = ciName;
-        if (child.transform.parent != parent) {
-            child.transform.SetParent(parent, false);
-        }
+        if (child.transform.parent != parent) { child.transform.SetParent(parent, false); }
         return child;
     }
 
-    internal static string Prefixed(string name) => name.StartsWith(Prefix, StringComparison.Ordinal) ? name : Prefix + name;
+    internal static string Prefixed(string name) =>
+        name.StartsWith(Prefix, StringComparison.Ordinal) ? name : Prefix + name;
 
     // Rule 1 (cleanup) — strip every CI_ child before re-inject / on toggle-off. DestroyImmediate
     // so a following EnsureChild in the same rebuild can't re-find a widget only pending destruction.
     internal static void StripInjected(Transform parent) {
         for (var i = parent.childCount - 1; i >= 0; i--) {
             var child = parent.GetChild(i);
-            if (child.name.StartsWith(Prefix, StringComparison.Ordinal)) {
-                UnityEngine.Object.DestroyImmediate(child.gameObject);
-            }
+            if (child.name.StartsWith(Prefix, StringComparison.Ordinal)) { Object.DestroyImmediate(child.gameObject); }
         }
     }
 

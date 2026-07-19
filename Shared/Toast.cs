@@ -10,9 +10,21 @@ sealed class Toast : MonoBehaviour {
     const float HoldSeconds = 2f;
 
     static Toast? _instance;
+    float _shownAt;
 
     TMP_Text _text = null!;
-    float _shownAt;
+
+    // Wall-clock fade so a multi-second scene reload (Quick Load) completes the fade instead of stalling a delta timer.
+    void Update() {
+        var elapsed = Time.realtimeSinceStartup - _shownAt;
+        if (elapsed >= HoldSeconds) {
+            enabled = false;
+            return;
+        }
+        var color = _text.color;
+        color.a = Mathf.Clamp01(1f - elapsed / HoldSeconds);
+        _text.color = color;
+    }
 
     internal static void Show(string message) {
         Ensure();
@@ -64,17 +76,5 @@ sealed class Toast : MonoBehaviour {
         _text.color = Color.white;
         _shownAt = Time.realtimeSinceStartup;
         enabled = true;
-    }
-
-    // Wall-clock fade so a multi-second scene reload (Quick Load) completes the fade instead of stalling a delta timer.
-    void Update() {
-        var elapsed = Time.realtimeSinceStartup - _shownAt;
-        if (elapsed >= HoldSeconds) {
-            enabled = false;
-            return;
-        }
-        var color = _text.color;
-        color.a = Mathf.Clamp01(1f - elapsed / HoldSeconds);
-        _text.color = color;
     }
 }
