@@ -12,7 +12,6 @@ static class OrbitalClickPatch {
 
     [HarmonyPrefix, HarmonyPriority(Priority.Low)]
     static bool Prefix(InfoBase __instance) {
-        if (Services.Config.DeferOrbitalClickToUXTweaks.Value) { return true; }
         if (!CounterpartResolver.IsCtrlPressed()) { return true; }
         if (__instance is not ObjectInfo info) { return true; }
         var orbit = CounterpartResolver.GetCounterpart(info);

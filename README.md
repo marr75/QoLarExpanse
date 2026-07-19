@@ -61,7 +61,7 @@ Settings live in `BepInEx/config/marr75.solarexpanse.qolarexpanse.cfg` and can a
 - **`MasterEnabled`**: the whole-mod off switch.
 - **`ModuleStackEnabled`**: turn off if you prefer one row per module.
 - **`StopArrowKeysMovingMap`**: turn off if it fights another camera setup.
-- **`DeferOrbitalClickToUXTweaks`** (Advanced): only turn on if you also run UXTweaks.
+- **`DeferBottomBarClicksToSimpleTweaks`** (Advanced): only turn on if you also run Simple Tweaks and its quick-access-bar Ctrl-click jumps to orbit twice; Ctrl-clicking bodies in the main view is unaffected either way.
 
 Everything else is a feature on/off toggle or a rebindable key, grouped by section in the file.
 

@@ -8,7 +8,7 @@ sealed class Configuration {
 
     public readonly ConfigEntry<bool> BodyNavigationEnabled;
 
-    public readonly ConfigEntry<bool> DeferOrbitalClickToUXTweaks;
+    public readonly ConfigEntry<bool> DeferBottomBarClicksToSimpleTweaks;
 
     public readonly ConfigEntry<bool> DropAllEnabled;
     public readonly ConfigEntry<bool> HideContractPopupsOnLoad;
@@ -273,15 +273,15 @@ sealed class Configuration {
             + "add or swap any module freely.";
         AddAnyEnabled = c.Bind("Cargo", "AddAnyEnabled", true, addAnyEnableDescription);
 
-        const string deferOrbitalClickToUXTweaksDescription =
-            "Advanced compatibility option. Turns off this mod's Ctrl-click orbital jump so the UXTweaks "
-            + "mod's own body-click feature can handle it instead. Only turn this on if you run both mods "
-            + "and see a body-click do two things at once.";
-        DeferOrbitalClickToUXTweaks = c.Bind(
+        const string deferBottomBarClicksToSimpleTweaksDescription =
+            "Advanced compatibility option. If you also run Simple Tweaks, both mods react to Ctrl-clicks "
+            + "on the quick-access bar at the bottom of the screen; turn this on to let Simple Tweaks handle "
+            + "those clicks instead. Ctrl-clicking bodies in the main view is not affected.";
+        DeferBottomBarClicksToSimpleTweaks = c.Bind(
             "Advanced",
-            "DeferOrbitalClickToUXTweaks",
+            "DeferBottomBarClicksToSimpleTweaks",
             false,
-            deferOrbitalClickToUXTweaksDescription
+            deferBottomBarClicksToSimpleTweaksDescription
         );
     }
 }

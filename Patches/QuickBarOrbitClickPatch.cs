@@ -11,6 +11,7 @@ static class QuickBarOrbitClickPatch {
 
     [HarmonyPrefix]
     static bool Prefix(HighlightHoverObject __instance) {
+        if (Services.Config.DeferBottomBarClicksToSimpleTweaks.Value) { return true; }
         if (!CounterpartResolver.IsCtrlPressed()) { return true; }
         var orbit = CounterpartResolver.GetCounterpart(__instance.MyTargetObjectInfo);
         if (orbit == null) { return true; }
