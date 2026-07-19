@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Data.ScriptableObject;
@@ -9,15 +10,19 @@ using UIPlanMissionElements;
 
 namespace QoLarExpanse.Patches;
 
-// C7 retype diagnostics only — no game state is modified here. Stock ModuleDropDownOnonValueChange
-// (ResorceRow.cs:252) retypes only this.cargo, so a stacked row's hidden members keep the old type;
-// [C7retype] records the group and claim state around each change so the real fix can be data-driven.
+// C7 stacked-row group retype. Stock ModuleDropDownOnonValueChange (ResorceRow.cs:252) retypes only
+// this.cargo, so a stacked row's hidden members keep the old type. The prefix snapshots the same-list
+// members sharing the old descriptor; the postfix converts up to the new module's free claimable units
+// by assigning member SourceModule/moduleData directly — never through the dropdown SetOptions/IndexOf
+// path that nulled members in R2/R3 — then fires ONE rebuild that re-derives claims/crew/weight.
+// moduleData is never nulled; scarcity leaves an honest residual old-type stack, not a revert.
 [HarmonyPatch(typeof(ResorceRow), nameof(ResorceRow.ModuleDropDownOnonValueChange))]
-static class ModuleRetypeDiagnosticPatch {
+static class ModuleStackRetypePatch {
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
 
     internal sealed class State {
         internal Cargo? Cargo;
+        internal CargoAll? Owner;
         internal SpaceModuleDescriptor? OldData;
         internal List<Cargo> Members = new();
     }
@@ -30,14 +35,18 @@ static class ModuleRetypeDiagnosticPatch {
         if (owner == null || !CargoStacking.IsStackable(cargo, owner)) {
             return;
         }
-        __state.Cargo = cargo;
-        __state.OldData = cargo!.moduleData;
-        foreach (var source in new[] { owner.listCargoGravityAssists, owner.listCargo, owner.listCargoToOrbit }) {
-            if (source != null) {
-                __state.Members.AddRange(source.Where(c =>
-                    c != cargo && CargoStacking.IsStackable(c, owner) && c.moduleData == cargo.moduleData));
-            }
+        // Members from the ONE list holding this cargo: CargoStacking.Build groups each list
+        // independently, so a merged pass would convert a to-orbit/carryover stack of the same type.
+        var source = new[] { owner.listCargoGravityAssists, owner.listCargo, owner.listCargoToOrbit }
+            .FirstOrDefault(l => l != null && l.Contains(cargo));
+        if (source == null) {
+            return;
         }
+        __state.Cargo = cargo;
+        __state.Owner = owner;
+        __state.OldData = cargo!.moduleData;
+        __state.Members.AddRange(source.Where(c =>
+            c != cargo && CargoStacking.IsStackable(c, owner) && c.moduleData == cargo.moduleData));
     }
 
     [HarmonyPostfix]
@@ -47,22 +56,45 @@ static class ModuleRetypeDiagnosticPatch {
             return;
         }
 
+        // Load-bearing discriminator: ModuleDropDownOnonValueChange also runs unchanged on every row
+        // during SetData (ResorceRow.cs:453,:506). Only a real user retype changes moduleData; this
+        // also stops the rebuild we fire below from recursing.
         var newData = cargo.moduleData;
-        var newModule = cargo.SourceModule;
-        var dropValue = __instance.moduleDropDown && __instance.moduleDropDown.dropDown
-            ? __instance.moduleDropDown.dropDown.value
-            : -999;
-        var info = __instance.objectInfo?.GetObjectInfo();
-        var free = info && newModule != null ? (int)info!.GetAvailableCountOffSpaceModule(newModule) : -1;
-
-        Plugin.Log.LogInfo(
-            $"[C7retype] group={__state.Members.Count + 1} old={Name(__state.OldData)} new={Name(newData)} " +
-            $"sourceModule={(newModule == null ? "NULL" : "set")} dropDownValue={dropValue} freeOfNew={free}");
-        for (var i = 0; i < __state.Members.Count; i++) {
-            var member = __state.Members[i];
-            Plugin.Log.LogInfo(
-                $"[C7retype]   member[{i}] data={Name(member.moduleData)} converted={member.moduleData == newData}");
+        if (newData == __state.OldData) {
+            return;
         }
+
+        // Crew targets are not stackable (IsStackable excludes CrewTransport, C10's domain): leave
+        // members on the representative-only change and let the next SetData unstack them per-row.
+        var newModule = cargo.SourceModule;
+        if (newModule == null || !CargoStacking.IsStackable(cargo, __state.Owner)) {
+            return;
+        }
+
+        // free = claimable units of the new type BEYOND the representative's own fresh claim (stock
+        // step 1 already took it). Capping convert at free keeps the rebuild's peak claim count within
+        // Quantity − MinEnabledQuantity, so no rebuilt row hits the −1 filter path.
+        var info = __instance.objectInfo?.GetObjectInfo();
+        var free = info ? (int)info!.GetAvailableCountOffSpaceModule(newModule) : 0;
+        var convert = Math.Min(__state.Members.Count, Math.Max(0, free));
+        for (var i = 0; i < convert; i++) {
+            var member = __state.Members[i];
+            member.SourceModule = newModule;
+            member.moduleData = newData;
+        }
+
+        Plugin.Log.LogInfo($"[C7retype] converted={convert} of members={__state.Members.Count} free={free}");
+        if (convert < __state.Members.Count) {
+            Plugin.Log.LogWarning(
+                $"[C7retype] partial: {__state.Members.Count - convert} member(s) stay on {Name(__state.OldData)} " +
+                $"(insufficient free units of {Name(newData)})");
+        }
+
+        var parent = __instance.resourcesListParent;
+        if (!parent || parent.tabCargo == null) {
+            return;
+        }
+        CargoListOps.RunBatch(() => parent.tabCargo.SetDataResourcesList());
     }
 
     static string Name(SpaceModuleDescriptor? data) => data == null ? "NULL" : data.name;
