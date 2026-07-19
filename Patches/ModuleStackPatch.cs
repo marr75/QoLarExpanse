@@ -22,15 +22,13 @@ namespace QoLarExpanse.Patches;
 // moduleWeightMeshPro and every clone of it dragged a stray "T" along.
 [HarmonyPatch(typeof(ResourcesList), nameof(ResourcesList.SetData))]
 static class ModuleStackPatch {
+    const string Cluster = "StackCluster";
     const string QtyLabel = "StackQtyLabel";
     const string Quantity = "StackQuantity";
     const string EachLabel = "StackEach";
     const string TotalLabel = "StackTotal";
     const float Gap = 6f;
     const float QtyWidth = 54f;
-    const float LabelWidth = 46f;
-    const float EachMinWidth = 60f;
-    const float TotalMinWidth = 40f;
     const float Inset = 4f;
     const float RuleMaxHeight = 6f;
     const float RuleMinWidth = 40f;
@@ -110,24 +108,62 @@ static class ModuleStackPatch {
             tons!.gameObject.SetActive(false);
         }
 
-        var qtyLabel = Label(host, QtyLabel, weight, "QTY:");
-        GameObject quantity;
+        // Span the underline BEFORE parenting children so the group's first pass has a real width.
+        var cluster = MakeCluster(host, weight, line, rule);
+        Label(cluster, QtyLabel, weight, "QTY:");
         if (entry.Editable) {
-            var field = Input(host, row, count);
+            var field = Input(cluster, row, count);
             CargoListOps.SetSingleListener(field.onEndEdit, _ => Commit(list, row, entry.Group, field));
-            quantity = field.gameObject;
         } else {
-            quantity = Label(host, Quantity, weight, count.ToString()).gameObject;
+            Label(cluster, Quantity, weight, count.ToString());
         }
-        var each = Label(host, EachLabel, weight, $"EA: {Mass(entry.Group.Representative)}{unit}");
-        var total = Label(host, TotalLabel, weight, $"{Total(entry.Group)}{unit}");
+        Label(cluster, EachLabel, weight, $"EA: {Mass(entry.Group.Representative)}{unit}");
+        Label(cluster, TotalLabel, weight, $"{Total(entry.Group)}{unit}");
 
-        if (host.GetComponent<LayoutGroup>() != null) {
-            Flow(host, weight, qtyLabel.gameObject, quantity, each, total);
-            return;
-        }
-        Absolute(host, line, rule, qtyLabel.gameObject, quantity, each, total);
+        // TMP preferred widths are computed from the strings on this immediate pass, so the first
+        // rendered frame is already correctly sized rather than reading a stale/zero mesh.
+        LayoutRebuilder.ForceRebuildLayoutImmediate(cluster);
     }
+
+    // ONE horizontal-layout container per stacked row, reused idempotently. Its RectTransform spans
+    // the underline (or the figure-relative fallback) so the group has a real width before children
+    // arrive; the group sizes and orders the children after that. No Image => the underline scan of
+    // other rows never mistakes it for a rule, and its CI_ name keeps it out of that scan too.
+    static RectTransform MakeCluster(RectTransform host, TextMeshProUGUI weight, Rect line, Rect? rule) {
+        var go = CargoListOps.EnsureChild(host, Cluster, NewCluster);
+        var rect = (RectTransform)go.transform;
+        var span = rule ?? Fallback(host, line);
+        rect.anchorMin = rect.anchorMax = Vector2.zero;
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.localScale = Vector3.one;
+        rect.sizeDelta = new Vector2(span.width, Mathf.Max(line.height, 22f));
+        rect.anchoredPosition = new Vector2(span.xMin, line.center.y) - host.rect.min;
+        // If the host runs its own layout group it owns our x; take the hidden figure's slot and let
+        // the container's own group report its preferred size upward.
+        if (host.GetComponent<LayoutGroup>() != null) {
+            rect.SetSiblingIndex(weight.transform.GetSiblingIndex());
+        }
+        return rect;
+    }
+
+    static GameObject NewCluster(Transform parent) {
+        var go = new GameObject("cluster", typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var group = go.AddComponent<HorizontalLayoutGroup>();
+        group.spacing = Gap;
+        group.padding = new RectOffset((int)Inset, (int)Inset, 0, 0);
+        group.childForceExpandWidth = false;
+        group.childForceExpandHeight = false;
+        group.childControlWidth = true;
+        group.childControlHeight = true;
+        group.childAlignment = TextAnchor.MiddleLeft;
+        return go;
+    }
+
+    // Figure-relative span when no rule is found: start a slot left of the stock figure, run to the
+    // host's right edge. Exact left is uncritical — the group and padding place the content.
+    static Rect Fallback(RectTransform host, Rect line) =>
+        Rect.MinMaxRect(line.xMin - Gap * 2f - QtyWidth - Inset, line.yMin, host.rect.xMax, line.yMax);
 
     static int Mass(Cargo cargo) =>
         cargo.moduleData == null ? 0 : (int)cargo.moduleData.GetMass(MonoBehaviourSingleton<GameManager>.Instance.Player);
@@ -145,8 +181,8 @@ static class ModuleStackPatch {
         return (int)mass;
     }
 
-    static TextMeshProUGUI Label(RectTransform host, string name, TextMeshProUGUI source, string text) {
-        var go = CargoListOps.EnsureChild(host, name, parent => CloneLabel(parent, source));
+    static TextMeshProUGUI Label(Transform cluster, string name, TextMeshProUGUI source, string text) {
+        var go = CargoListOps.EnsureChild(cluster, name, parent => CloneLabel(parent, source));
         var tmp = go.GetComponent<TextMeshProUGUI>();
         tmp.text = text;
         return tmp;
@@ -175,11 +211,16 @@ static class ModuleStackPatch {
         return clone;
     }
 
-    static TMP_InputField Input(RectTransform host, ResorceRow row, int count) {
-        var go = CargoListOps.EnsureChild(host, Quantity, parent => CloneInput(parent, row.inputField));
+    static TMP_InputField Input(Transform cluster, ResorceRow row, int count) {
+        var go = CargoListOps.EnsureChild(cluster, Quantity, parent => CloneInput(parent, row.inputField));
         var input = go.GetComponent<TMP_InputField>();
         input.interactable = true;
         input.SetTextWithoutNotify(count.ToString());
+        // The input has no ILayoutElement of its own, so pin a fixed width: a stable click target and
+        // enough room for the 3-digit limit without any text measurement.
+        var element = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+        element.minWidth = element.preferredWidth = QtyWidth;
+        element.flexibleWidth = 0f;
         return input;
     }
 
@@ -252,100 +293,6 @@ static class ModuleStackPatch {
             }
         }
         return false;
-    }
-
-    // Absolute branch: lay the four elements out left to right inside the underline span with a 4px
-    // inset on both sides. The QTY label is unconditional. When the natural cluster overflows the
-    // span, compress the inter-element gaps first; if zeroed gaps still overflow, spill into the empty
-    // space to the right rather than ever dropping content.
-    static void Absolute(RectTransform host, Rect line, Rect? underline, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
-        var height = Mathf.Max(line.height, 22f);
-        var y = line.center.y;
-
-        // Each slot is sized off its own text, measured from the string (timing-independent) and
-        // clamped to the pre-polish fixed width as a floor: wide text (EA: 100T) grows the slot, while
-        // a degenerate zero measurement degrades to the old fixed spacing rather than colliding.
-        var labelTmp = qtyLabel.GetComponent<TextMeshProUGUI>();
-        var labelWidth = Width(labelTmp, labelTmp.text, LabelWidth);
-        var qtyText = QuantityText(quantity);
-        var qtyTextWidth = Width(qtyText, QuantityString(quantity), QtyWidth);
-        var eachWidth = Width(each, each.text, EachMinWidth);
-        var totalWidth = Width(total, total.text, TotalMinWidth);
-
-        if (underline == null) {
-            Plugin.Log.LogWarning("[C7] no underline rule found; falling back to figure-relative layout");
-        }
-        var span = underline ?? Rect.MinMaxRect(line.xMin - Gap * 2f - QtyWidth - LabelWidth - Inset, line.yMin, host.rect.xMax, line.yMax);
-        var left = span.xMin + Inset;
-        var right = span.xMax - Inset;
-
-        var natural = labelWidth + qtyTextWidth + eachWidth + totalWidth + Gap * 3f;
-        var gap = Gap;
-        if (natural > right - left) {
-            gap = Mathf.Max(0f, Gap - (natural - (right - left)) / 3f);
-        }
-
-        // Advance by each slot's clamped width so the value box and its advance match: a zero
-        // measurement still advances a full QtyWidth, keeping EA off the quantity value.
-        var x = left;
-        qtyLabel.SetActive(true);
-        Place(qtyLabel, host, x, y, labelWidth, height);
-        x += labelWidth + gap;
-        Place(quantity, host, x, y, qtyTextWidth, height);
-        x += qtyTextWidth + gap;
-        Place(each.gameObject, host, x, y, eachWidth, height);
-        x += eachWidth + gap;
-        Place(total.gameObject, host, x, y, totalWidth, height);
-
-        if (x + totalWidth > host.rect.xMax) {
-            Plugin.Log.LogWarning($"[C7] cluster runs to {x + totalWidth:0.#}px past host edge {host.rect.xMax:0.#}px");
-        }
-    }
-
-    static TMP_Text QuantityText(GameObject quantity) {
-        var field = quantity.GetComponent<TMP_InputField>();
-        return field != null ? field.textComponent : quantity.GetComponent<TextMeshProUGUI>();
-    }
-
-    // The value string just assigned, read off the field (never its stale mesh) so the width measures
-    // what will render.
-    static string QuantityString(GameObject quantity) {
-        var field = quantity.GetComponent<TMP_InputField>();
-        return field != null ? field.text : quantity.GetComponent<TextMeshProUGUI>().text;
-    }
-
-    // Layout branch: a layout group owns x placement, so only order and preferred width are ours.
-    static void Flow(RectTransform host, TextMeshProUGUI weight, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
-        Sized(qtyLabel, LabelWidth);
-        Sized(quantity, QtyWidth);
-        Sized(each.gameObject, Width(each, each.text, EachMinWidth));
-        Sized(total.gameObject, Width(total, total.text, TotalMinWidth));
-
-        var head = weight.transform.GetSiblingIndex();
-        qtyLabel.transform.SetSiblingIndex(head);
-        quantity.transform.SetSiblingIndex(head + 1);
-        each.transform.SetSiblingIndex(head + 2);
-        total.transform.SetSiblingIndex(head + 3);
-    }
-
-    // Measure from the string via GetPreferredValues so the result is independent of the mesh's
-    // render state (stale/zero at postfix time), then clamp to the pre-polish fixed width as a floor.
-    static float Width(TMP_Text tmp, string text, float floor) =>
-        Mathf.Max(tmp.GetPreferredValues(text).x, floor);
-
-    static void Sized(GameObject go, float width) {
-        var element = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
-        element.minWidth = element.preferredWidth = width;
-        element.flexibleWidth = 0f;
-    }
-
-    static void Place(GameObject go, RectTransform host, float xLeft, float yCenter, float width, float height) {
-        var rect = (RectTransform)go.transform;
-        rect.anchorMin = rect.anchorMax = Vector2.zero;
-        rect.pivot = new Vector2(0f, 0.5f);
-        rect.localScale = Vector3.one;
-        rect.sizeDelta = new Vector2(width, height);
-        rect.anchoredPosition = new Vector2(xLeft, yCenter) - host.rect.min;
     }
 
     static Rect LocalRect(RectTransform target, RectTransform space) {
