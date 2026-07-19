@@ -42,7 +42,7 @@ static class DropAllPatch {
 
         var assists = _cargos?.listCargoGravityAssists;
         var template = Template(__instance);
-        LogScan(__instance, titleRow, (RectTransform)wrench.transform, assists, template);
+        // LogScan(__instance, titleRow, (RectTransform)wrench.transform, assists, template);
 
         if (_cargos == null || assists is not { Count: > 0 } || template == null) {
             var stale = titleRow.Find(CargoListOps.Prefixed(SlotName));
@@ -60,7 +60,7 @@ static class DropAllPatch {
             return;
         }
         button.interactable = true;
-        LogIcon(slot, button);
+        // LogIcon(slot, button);
 
         CargoListOps.SetSingleListener(
             button.onClick,
@@ -112,7 +112,7 @@ static class DropAllPatch {
 
         foreach (var tip in clone.GetComponentsInChildren<ShowToolTip>(true)) {
             tip.CustomTextFromCode = Label;
-            tip.CustomTextFromCodeRefreshText2 = () => Label;
+            tip.CustomTextFromCodeRefreshText2 = () => (Label, (List<(string, string)>)null!, "");
         }
         return clone;
     }
