@@ -13,15 +13,15 @@ A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar sys
 
 - **Solar-system navigation.** Step between planets in distance-from-sun order and between a planet's moons with Ctrl + arrow keys, favorited bodies included as extra stops. Ctrl-click a body to snap between its surface and orbital view. Dragging behaves the same everywhere, too: whether you pick something up from the bottom nav bar or from a 3D body in the view, holding Ctrl while you drag cargo onto a body drops it into that body's orbit.
 
-<!-- TODO: video, paste the GitHub user-attachments URL for qol-orbital-click-and-toggle.mp4 (11s, click-to-play) on its own line here -->
+https://github.com/user-attachments/assets/31e99d24-085d-41df-812d-36e2cf2d73af
 
 - **One-key screens.** F4 through F7 open Search, Missions, Market, and Research directly; with a body selected, Missions and Market open for that body. The arrow keys also stop nudging the map while you type or have a screen open, so a shortcut or a stray letter won't drag the camera by accident.
 
-<!-- TODO: video, paste the GitHub user-attachments URL for qol-screen-hotkeys.mp4 (14s, click-to-play) on its own line here -->
+https://github.com/user-attachments/assets/8e9584db-b945-46d7-b783-2c88875879de
 
 - **Mission-planning shortcuts.** Inside the Plan Mission window, toggle origin or destination between surface and orbit, swap them, and step back and forward, all from the keyboard. The mnemonic: A is your point A (origin), D is your destination, and S, sitting between them, swaps the two.
 
-<!-- TODO: video, paste the GitHub user-attachments URL for qol-mission-planning-and-search.mp4 (39s, click-to-play) on its own line here -->
+https://github.com/user-attachments/assets/429a75d9-c35b-41ff-9608-ab2667143b51
 
 - **Quick save and load.** One key writes a fresh save, another reloads your most recent one, with an on-screen confirmation.
 - **Calmer contract loading.** Loading a save full of contracts no longer spams a popup and a sound for every restored contract.
@@ -40,7 +40,7 @@ A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar sys
 |-|-|-|
 | Ctrl + Left / Right | Previous / next planet, ordered by distance from the sun | System map |
 | Ctrl + Up / Down | Next / previous moon of the current planet | With a planet selected |
-| Ctrl + Click | Jump a body between its surface and orbital view | On a body's surface panel or its quick-access icon |
+| Ctrl + Click | Jump directly to a body's orbit view | On a body's 3D model or its quick-access nav icon |
 | Ctrl + Drag | Drop the item into a body's orbit instead of onto its surface | While dragging onto a body that has an orbit |
 | Tab | Flip the open info window between surface and orbit | While a body info window is open |
 | F4 / F5 / F6 / F7 | Open Search / Missions / Market / Research | Anywhere; F5 and F6 open for the selected body if one is picked |
