@@ -189,20 +189,47 @@ static class ModuleStackPatch {
     // to. Skip TMP text and our own CI_ widgets so a reused input's background can't pose as the rule.
     static Rect? Underline(RectTransform host, Rect line) {
         Rect? best = null;
+        List<string>? rejected = null;
         foreach (var graphic in host.GetComponentsInChildren<Graphic>(true)) {
-            if (graphic is TMP_Text || Injected(graphic.transform, host)) {
-                continue;
-            }
             var rect = LocalRect((RectTransform)graphic.transform, host);
-            var onLine = Mathf.Abs(rect.center.y - line.center.y) <= line.height * 1.5f;
-            if (!onLine || rect.height > RuleMaxHeight || rect.width < RuleMinWidth) {
+            var reason = RejectReason(graphic, host, rect, line);
+            if (reason != null) {
+                (rejected ??= new List<string>()).Add(
+                    $"{graphic.name} active={graphic.gameObject.activeInHierarchy} w={rect.width:0.#} h={rect.height:0.#} " +
+                    $"yDelta={Mathf.Abs(rect.center.y - line.center.y):0.#} reason={reason}");
                 continue;
             }
             if (best == null || rect.width > best.Value.width) {
                 best = rect;
             }
         }
+        // [C7scan] one-shot per failed scan (root cause of the 22/22 "no underline rule" log still
+        // unproven statically): candidate name/active/size/y-delta plus which criterion rejected it.
+        if (best == null && rejected != null) {
+            foreach (var entry in rejected) {
+                Plugin.Log.LogInfo($"[C7scan] {entry}");
+            }
+        }
         return best;
+    }
+
+    static string? RejectReason(Graphic graphic, RectTransform host, Rect rect, Rect line) {
+        if (graphic is TMP_Text) {
+            return "tmpText";
+        }
+        if (Injected(graphic.transform, host)) {
+            return "injected";
+        }
+        if (Mathf.Abs(rect.center.y - line.center.y) > line.height * 1.5f) {
+            return "offLine";
+        }
+        if (rect.height > RuleMaxHeight) {
+            return "tooTall";
+        }
+        if (rect.width < RuleMinWidth) {
+            return "tooNarrow";
+        }
+        return null;
     }
 
     static bool Injected(Transform target, Transform host) {
@@ -387,6 +414,34 @@ static class ModuleStackRebuildPatch {
         queued = false;
         if (!list || list.tabCargo == null) {
             yield break;
+        }
+        CargoListOps.RunBatch(() => list.tabCargo.SetDataResourcesList());
+    }
+}
+
+// The native Add-Module button (OnClickAddSpecial/OnClickAddSpecialToOrbit) instantiates one row
+// via ResorceRow.SetData without ever calling ResourcesList.SetData, so ModuleStackPatch's postfix
+// (keyed to SetData) never fires and the new row sits un-collapsed beside its stack. Force the
+// same rebuild every other add path already gets (OnClickMultiAdd -> AddCargo -> SetDataResourcesList).
+[HarmonyPatch(typeof(ResourcesList))]
+static class ModuleAddCollapsePatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
+
+    [HarmonyPostfix]
+    [HarmonyPatch(nameof(ResourcesList.OnClickAddSpecial))]
+    static void AfterAdd(ResourcesList __instance, Cargo _cargo) => Rebuild(__instance, _cargo);
+
+    [HarmonyPostfix]
+    [HarmonyPatch(nameof(ResourcesList.OnClickAddSpecialToOrbit))]
+    static void AfterAddToOrbit(ResourcesList __instance, Cargo _cargo) => Rebuild(__instance, _cargo);
+
+    // Only the button wiring (OnClickAddSpecial2/2ToOrbit, ResourcesList.cs:236-244) calls with no
+    // args, i.e. a null cargo. Every SetData-internal re-add of an existing row (ResourcesList.cs:
+    // 594,605,620,635) passes a real Cargo; without this null check the postfix would recurse into
+    // SetData's own per-row loop even on a plain panel refresh, outside our own RunBatch.
+    static void Rebuild(ResourcesList list, Cargo? cargo) {
+        if (cargo != null || CargoListOps.InBatch || !list || list.tabCargo == null) {
+            return;
         }
         CargoListOps.RunBatch(() => list.tabCargo.SetDataResourcesList());
     }
