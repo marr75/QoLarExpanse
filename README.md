@@ -74,4 +74,4 @@ Everything else is a feature on/off toggle or a rebindable key, grouped by secti
 
 ## Building (developers)
 
-`dotnet build` deploys the DLL to the game's plugins folder via the post-build target. See `AGENTS.md`.
+`dotnet build` deploys the DLL to the game's plugins folder via the post-build target.
