@@ -1,31 +1,36 @@
 # QoLarExpanse
 
-A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar system with hotkeys, open any screen with one key, and tame the cargo panel — without changing how the game actually plays.
+A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar system with hotkeys, open any screen with one key, and tame the cargo panel, all without changing how the game actually plays.
 
 <table>
 <tr>
-<td width="50%"><img src="media/qol-module-stacking.png" alt="Cargo panel before/after: one row per module versus one stacked row with a quantity" width="100%"></td>
-<td width="50%"><img src="media/qol-body-navigation.gif" alt="Stepping between planets and moons with Ctrl + arrow keys" width="100%"></td>
+<td width="50%"><img src="media/qol-module-stacking.png" alt="Cargo panel before and after: one row per module versus one stacked row with a quantity" width="100%"></td>
+<td width="50%"><img src="media/qol-body-navigation.gif" alt="Stepping between planets and cycling a planet's moons with Ctrl + arrow keys" width="100%"></td>
 </tr>
 </table>
 
 ## What it does
 
-- **Solar-system navigation.** Step between planets in distance-from-sun order and between a planet's moons with Ctrl + arrow keys — favorited bodies included as extra stops. Ctrl-click a body to snap between its surface and orbital view, and Ctrl-drag cargo straight onto a body's orbit.
-- **One-key screens.** F4–F7 open Search, Missions, Market, and Research directly; with a body selected, Missions and Market open for that body. An arrow-key guard keeps the map from drifting while you type or have a screen open.
-- **Mission-planning shortcuts.** Inside the Plan Mission window, toggle origin/destination between surface and orbit, swap them, and step back/forward — all from the keyboard. Mnemonic: A is your point A (origin), D is your destination, and S — sitting between them — swaps the two.
+- **Solar-system navigation.** Step between planets in distance-from-sun order and between a planet's moons with Ctrl + arrow keys, favorited bodies included as extra stops. Ctrl-click a body to snap between its surface and orbital view. Dragging behaves the same everywhere, too: whether you pick something up from the bottom nav bar or from a 3D body in the view, holding Ctrl while you drag cargo onto a body drops it into that body's orbit.
+
+<!-- TODO: video, paste the GitHub user-attachments URL for qol-orbital-click-and-toggle.mp4 (11s, click-to-play) on its own line here -->
+
+- **One-key screens.** F4 through F7 open Search, Missions, Market, and Research directly; with a body selected, Missions and Market open for that body. The arrow keys also stop nudging the map while you type or have a screen open, so a shortcut or a stray letter won't drag the camera by accident.
+
+<!-- TODO: video, paste the GitHub user-attachments URL for qol-screen-hotkeys.mp4 (14s, click-to-play) on its own line here -->
+
+- **Mission-planning shortcuts.** Inside the Plan Mission window, toggle origin or destination between surface and orbit, swap them, and step back and forward, all from the keyboard. The mnemonic: A is your point A (origin), D is your destination, and S, sitting between them, swaps the two.
+
+<!-- TODO: video, paste the GitHub user-attachments URL for qol-mission-planning-and-search.mp4 (39s, click-to-play) on its own line here -->
+
 - **Quick save and load.** One key writes a fresh save, another reloads your most recent one, with an on-screen confirmation.
 - **Calmer contract loading.** Loading a save full of contracts no longer spams a popup and a sound for every restored contract.
-- **A tidier cargo panel.** Identical modules collapse into one row with a quantity you can edit directly, a Drop All button clears leftover cargo in one click, and every module row stays editable so you can add or swap any module at any time.
+- **A tidier cargo panel.** Identical modules collapse into one row with a quantity you can edit directly, a Drop All button clears leftover cargo in one click, and every module row stays editable so you can add or swap any module whenever you like.
 
 <table>
 <tr>
 <td width="50%"><img src="media/qol-drop-all.png" alt="Drop All button clearing leftover cargo from the mission panel" width="100%"></td>
-<td width="50%"><img src="media/qol-screen-hotkeys.gif" alt="F4 through F7 opening Search, Missions, Market, and Research" width="100%"></td>
-</tr>
-<tr>
-<td width="50%"><img src="media/qol-orbital-drag.gif" alt="Ctrl-dragging cargo onto a body's orbit instead of its surface" width="100%"></td>
-<td width="50%"><img src="media/qol-mission-planning.gif" alt="Mission-planning hotkeys stepping through the Plan Mission window" width="100%"></td>
+<td width="50%"><img src="media/qol-quicksave-toast.gif" alt="On-screen confirmation after a quick save" width="100%"></td>
 </tr>
 </table>
 
@@ -45,14 +50,7 @@ A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar sys
 | Backspace / Enter | Step back / forward through Plan Mission (Enter confirms on the last step) | Plan Mission window open |
 | Up / Down, then Enter | Move through a search suggestion list and pick the highlighted result | Search suggestion dropdown open |
 
-Every key here is configurable — see the settings file below.
-
-## Before / after
-
-Vanilla means hunting for bodies on the map, menu-diving for each screen, a cargo panel with one row per module, and a popup storm every time you load a busy save. With the mod those are hotkeys, one-key screens, stacked rows, and a quiet load.
-
-- [Arrow-key pan guard, before/after](#) <!-- TODO: paste user-attachments URL for qol-pan-guard.mp4 -->
-- [Contract-popup suppression, before/after](#) <!-- TODO: paste user-attachments URL for qol-contract-suppression.mp4 -->
+Every key here is configurable, see the settings file below.
 
 ## Configuration
 
