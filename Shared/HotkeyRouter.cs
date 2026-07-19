@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq;
 using Data;
 using Game.Info;
@@ -14,6 +15,10 @@ namespace QoLarExpanse.Shared;
 
 // Polls the navigation hotkeys every frame. Mirrors IntelController's Ensure() singleton pattern.
 sealed class HotkeyRouter : MonoBehaviour {
+    // Real-time drain window: lets in-flight AI.Decorators Calc UniTask chains unwind a few frames
+    // before the sim state they hold is torn down by a save/load, same as the pause-menu path does.
+    const float QuiesceSeconds = 0.25f;
+
     static HotkeyRouter? _instance;
 
     void Update() {
@@ -73,9 +78,19 @@ sealed class HotkeyRouter : MonoBehaviour {
             Toast.Show("Cannot save now");
             return;
         }
+        _instance!.StartCoroutine(QuiesceThenSave());
+    }
+
+    static IEnumerator QuiesceThenSave() {
+        var timeController = MonoBehaviourSingleton<TimeController>.Instance;
+        var previousScale = timeController.CurrentTimeScale;
+        timeController.SetTimescale(0f, true, true);
+        yield return new WaitForSecondsRealtime(QuiesceSeconds);
+
         var manager = SerializedMonoBehaviourSingleton<LoadSaveManager>.Instance;
         var name = LoadSaveManager.GetNewSaveName();
         Toast.Show(manager.SaveToFile(name) ? $"Saved: {name}" : "Save failed");
+        timeController.SetTimescale(previousScale, true, true);
     }
 
     static void QuickLoad() {
@@ -86,7 +101,20 @@ sealed class HotkeyRouter : MonoBehaviour {
             Toast.Show("No save to load");
             return;
         }
-        manager.LoadLastSave();
+        _instance!.StartCoroutine(QuiesceThenLoad());
+    }
+
+    static IEnumerator QuiesceThenLoad() {
+        var timeController = MonoBehaviourSingleton<TimeController>.Instance;
+        var previousScale = timeController.CurrentTimeScale;
+        timeController.SetTimescale(0f, true, true);
+        yield return new WaitForSecondsRealtime(QuiesceSeconds);
+
+        if (!SessionReadyToSaveOrLoad()) {
+            timeController.SetTimescale(previousScale, true, true);
+            yield break;
+        }
+        SerializedMonoBehaviourSingleton<LoadSaveManager>.Instance.LoadLastSave();
     }
 
     static void OpenScreen(EWindowType windowType) =>
