@@ -404,7 +404,7 @@ static class ModuleStackRebuildPatch {
 
     [HarmonyPostfix]
     static void Postfix(ResourcesList __instance) {
-        if (queued || CargoListOps.InBatch || !__instance || !__instance.isActiveAndEnabled || __instance.tabCargo == null) {
+        if (queued || CargoListOps.InBatch || CargoListOps.InStockRebuild || !__instance || !__instance.isActiveAndEnabled || __instance.tabCargo == null) {
             return;
         }
         queued = true;
@@ -421,6 +421,23 @@ static class ModuleStackRebuildPatch {
         }
         CargoListOps.RunBatch(() => list.tabCargo.SetDataResourcesList());
     }
+}
+
+// A stock ResourcesList.SetData rebuilds every row; each module row's SetData drives its dropdown
+// (SetOptions with a null module transiently selects module[0]) and fires
+// ModuleDropDownOnonValueChange with a genuine type change. Flag the whole rebuild so our eager
+// postfixes don't recurse into it. Finalizer clears the flag even if SetData throws.
+[HarmonyPatch(typeof(ResourcesList), nameof(ResourcesList.SetData))]
+static class StockRebuildGuardPatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value;
+
+    [HarmonyPrefix]
+    [HarmonyPriority(Priority.First)]
+    static void Prefix() => CargoListOps.BeginStockRebuild();
+
+    [HarmonyFinalizer]
+    [HarmonyPriority(Priority.Last)]
+    static void Finalizer() => CargoListOps.EndStockRebuild();
 }
 
 // The native Add-Module button (OnClickAddSpecial/OnClickAddSpecialToOrbit) instantiates one row
@@ -444,7 +461,7 @@ static class ModuleAddCollapsePatch {
     // 594,605,620,635) passes a real Cargo; without this null check the postfix would recurse into
     // SetData's own per-row loop even on a plain panel refresh, outside our own RunBatch.
     static void Rebuild(ResourcesList list, Cargo? cargo) {
-        if (cargo != null || CargoListOps.InBatch || !list || list.tabCargo == null) {
+        if (cargo != null || CargoListOps.InBatch || CargoListOps.InStockRebuild || !list || list.tabCargo == null) {
             return;
         }
         CargoListOps.RunBatch(() => list.tabCargo.SetDataResourcesList());
@@ -497,7 +514,7 @@ static class SingleModuleRetypeRebuildPatch {
 
     [HarmonyPostfix]
     static void Postfix(ResorceRow __instance, SpaceModuleDescriptor? __state) {
-        if (CargoListOps.InBatch) {
+        if (CargoListOps.InBatch || CargoListOps.InStockRebuild) {
             return;
         }
         var cargo = CargoListOps.CargoOf(__instance);

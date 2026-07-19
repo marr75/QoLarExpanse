@@ -21,6 +21,17 @@ static class CargoListOps {
     // must not re-trigger the feature's SetData hook.
     internal static bool InBatch { get; private set; }
 
+    // Reentrancy guard #2 — a game-initiated ResourcesList.SetData replays every module row's
+    // dropdown value: ResorceRow.SetData calls SetOptions with a null module, which transiently
+    // selects module[0] and fires ModuleDropDownOnonValueChange with a genuine type change mid-
+    // rebuild. Our eager-rebuild postfixes must stand down while a stock SetData is on the stack.
+    // Toggled by a prefix/finalizer pair so an exception in SetData can't leave it stuck.
+    internal static bool InStockRebuild { get; private set; }
+
+    internal static void BeginStockRebuild() => InStockRebuild = true;
+
+    internal static void EndStockRebuild() => InStockRebuild = false;
+
     internal static void RunBatch(Action body) {
         if (InBatch) {
             body();
