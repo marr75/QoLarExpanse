@@ -17,7 +17,7 @@ static class ArrowPanSuppressPatch {
 
     static bool ShouldSuppress() {
         if (Services.Config.BodyNavigationEnabled.Value && CounterpartResolver.IsCtrlPressed()) { return true; }
-        return Services.Config.ArrowPanGuardEnabled.Value && UiBlockingCameraPan();
+        return Services.Config.StopArrowKeysMovingMap.Value && UiBlockingCameraPan();
     }
 
     static bool UiBlockingCameraPan() {

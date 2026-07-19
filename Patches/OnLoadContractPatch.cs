@@ -9,7 +9,7 @@ namespace QoLarExpanse.Patches;
 // each restored player contract. Scoped to save extraction, so normal in-game contract popups still open.
 [HarmonyPatch(typeof(UIManager), nameof(UIManager.Open), typeof(EWindowType), typeof(object))]
 static class OnLoadContractPatch {
-    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.SuppressOnLoadContractEnabled.Value;
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.HideContractPopupsOnLoad.Value;
 
     static bool Prefix(EWindowType windowType) =>
         !(windowType == EWindowType.ContractInfo && LoadSaveManager.OnExtractAllFromSaveData);
