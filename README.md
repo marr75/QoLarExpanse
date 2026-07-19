@@ -13,7 +13,7 @@ A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar sys
 
 - **Solar-system navigation.** Step between planets in distance-from-sun order and between a planet's moons with Ctrl + arrow keys — favorited bodies included as extra stops. Ctrl-click a body to snap between its surface and orbital view, and Ctrl-drag cargo straight onto a body's orbit.
 - **One-key screens.** F4–F7 open Search, Missions, Market, and Research directly; with a body selected, Missions and Market open for that body. An arrow-key guard keeps the map from drifting while you type or have a screen open.
-- **Mission-planning shortcuts.** Inside the Plan Mission window, toggle origin/destination between surface and orbit, swap them, and step back/forward — all from the keyboard.
+- **Mission-planning shortcuts.** Inside the Plan Mission window, toggle origin/destination between surface and orbit, swap them, and step back/forward — all from the keyboard. Mnemonic: A is your point A (origin), D is your destination, and S — sitting between them — swaps the two.
 - **Quick save and load.** One key writes a fresh save, another reloads your most recent one, with an on-screen confirmation.
 - **Calmer contract loading.** Loading a save full of contracts no longer spams a popup and a sound for every restored contract.
 - **A tidier cargo panel.** Identical modules collapse into one row with a quantity you can edit directly, a Drop All button clears leftover cargo in one click, and every module row stays editable so you can add or swap any module at any time.
@@ -40,7 +40,7 @@ A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar sys
 | Tab | Flip the open info window between surface and orbit | While a body info window is open |
 | F4 / F5 / F6 / F7 | Open Search / Missions / Market / Research | Anywhere; F5 and F6 open for the selected body if one is picked |
 | F11 / F12 | Quick save to a new file / quick load the most recent save | In-game |
-| Alt + O / Alt + D | Toggle mission origin / destination between surface and orbit | Plan Mission window open |
+| Alt + A / Alt + D | Toggle mission origin / destination between surface and orbit (A/S/D: point A, swap, destination) | Plan Mission window open |
 | Alt + S | Swap mission origin and destination | Plan Mission window open |
 | Backspace / Enter | Step back / forward through Plan Mission (Enter confirms on the last step) | Plan Mission window open |
 | Up / Down, then Enter | Move through a search suggestion list and pick the highlighted result | Search suggestion dropdown open |

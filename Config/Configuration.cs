@@ -176,16 +176,16 @@ sealed class Configuration {
         );
 
         const string toggleOriginOrbitKeyDescription =
-            "Toggle the mission origin between a body's surface and its orbit.";
+            "Toggle the mission origin between a body's surface and its orbit — A is your 'point A'.";
         ToggleOriginOrbitKey = c.Bind(
             "Mission Planning",
             "ToggleOriginOrbitKey",
-            new KeyboardShortcut(KeyCode.O, KeyCode.LeftAlt),
+            new KeyboardShortcut(KeyCode.A, KeyCode.LeftAlt),
             toggleOriginOrbitKeyDescription
         );
 
         const string toggleDestinationOrbitKeyDescription =
-            "Toggle the mission destination between a body's surface and its orbit.";
+            "Toggle the mission destination between a body's surface and its orbit — D is your destination.";
         ToggleDestinationOrbitKey = c.Bind(
             "Mission Planning",
             "ToggleDestinationOrbitKey",
@@ -193,7 +193,8 @@ sealed class Configuration {
             toggleDestinationOrbitKeyDescription
         );
 
-        const string swapOriginDestinationKeyDescription = "Swap the mission origin and destination.";
+        const string swapOriginDestinationKeyDescription =
+            "Swap the mission origin and destination — S sits between A and D on the keyboard.";
         SwapOriginDestinationKey = c.Bind(
             "Mission Planning",
             "SwapOriginDestinationKey",
