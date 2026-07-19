@@ -225,7 +225,7 @@ static class ModuleStackPatch {
         if (Injected(graphic.transform, host)) {
             return "injected";
         }
-        if (Mathf.Abs(rect.center.y - line.center.y) > line.height * 1.5f) {
+        if (Mathf.Abs(rect.center.y - line.center.y) > Mathf.Max(1.5f * Mathf.Abs(line.height), 24f)) {
             return "offLine";
         }
         if (rect.height > RuleMaxHeight) {
