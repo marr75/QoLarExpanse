@@ -163,6 +163,9 @@ static class ModuleStackPatch {
         }
         var tmp = clone.GetComponent<TextMeshProUGUI>();
         tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        // Source is the stock weight figure, which carries its own inset margin; a bare-left label
+        // must start flush at its assigned x, so strip it rather than inherit an invisible offset.
+        tmp.margin = Vector4.zero;
         tmp.enableWordWrapping = false;
         tmp.raycastTarget = false;
         var element = clone.GetComponent<LayoutElement>();
@@ -191,6 +194,11 @@ static class ModuleStackPatch {
         input.onEndEdit.RemoveAllListeners();
         input.contentType = TMP_InputField.ContentType.IntegerNumber;
         input.characterLimit = 3;
+        // Stock field likely centres its value; the stacked value must hug the QTY label instead.
+        if (input.textComponent != null) {
+            input.textComponent.alignment = TextAlignmentOptions.MidlineLeft;
+            input.textComponent.margin = Vector4.zero;
+        }
         return clone;
     }
 
@@ -253,6 +261,14 @@ static class ModuleStackPatch {
     static void Absolute(RectTransform host, Rect line, Rect? underline, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
         var height = Mathf.Max(line.height, 22f);
         var y = line.center.y;
+
+        // Each slot is sized off its own measured text, not the fixed constants: a fixed slot leaves
+        // dead space behind narrow text (QTY:) and lets wide text (EA: 100T) run into the next slot.
+        var labelWidth = Width(qtyLabel.GetComponent<TextMeshProUGUI>(), 0f);
+        var qtyText = QuantityText(quantity);
+        var qtyTextWidth = Width(qtyText, 0f);
+        var isInput = quantity.GetComponent<TMP_InputField>() != null;
+        var qtyBoxWidth = isInput ? Mathf.Max(qtyTextWidth, QtyWidth) : qtyTextWidth;
         var eachWidth = Width(each, EachMinWidth);
         var totalWidth = Width(total, TotalMinWidth);
 
@@ -263,18 +279,20 @@ static class ModuleStackPatch {
         var left = span.xMin + Inset;
         var right = span.xMax - Inset;
 
-        var natural = LabelWidth + QtyWidth + eachWidth + totalWidth + Gap * 3f;
+        var natural = labelWidth + qtyTextWidth + eachWidth + totalWidth + Gap * 3f;
         var gap = Gap;
         if (natural > right - left) {
             gap = Mathf.Max(0f, Gap - (natural - (right - left)) / 3f);
         }
 
+        // Advance by measured text width, never by an element's (possibly wider) click-target box:
+        // the input's rect may stay wide for hit-testing, but the next label starts after its text.
         var x = left;
         qtyLabel.SetActive(true);
-        Place(qtyLabel, host, x, y, LabelWidth, height);
-        x += LabelWidth + gap;
-        Place(quantity, host, x, y, QtyWidth, height);
-        x += QtyWidth + gap;
+        Place(qtyLabel, host, x, y, labelWidth, height);
+        x += labelWidth + gap;
+        Place(quantity, host, x, y, qtyBoxWidth, height);
+        x += qtyTextWidth + gap;
         Place(each.gameObject, host, x, y, eachWidth, height);
         x += eachWidth + gap;
         Place(total.gameObject, host, x, y, totalWidth, height);
@@ -282,6 +300,11 @@ static class ModuleStackPatch {
         if (x + totalWidth > host.rect.xMax) {
             Plugin.Log.LogWarning($"[C7] cluster runs to {x + totalWidth:0.#}px past host edge {host.rect.xMax:0.#}px");
         }
+    }
+
+    static TMP_Text QuantityText(GameObject quantity) {
+        var field = quantity.GetComponent<TMP_InputField>();
+        return field != null ? field.textComponent : quantity.GetComponent<TextMeshProUGUI>();
     }
 
     // Layout branch: a layout group owns x placement, so only order and preferred width are ours.
@@ -298,7 +321,7 @@ static class ModuleStackPatch {
         total.transform.SetSiblingIndex(head + 3);
     }
 
-    static float Width(TextMeshProUGUI tmp, float min) {
+    static float Width(TMP_Text tmp, float min) {
         tmp.ForceMeshUpdate();
         return Mathf.Max(tmp.preferredWidth, min);
     }
