@@ -110,10 +110,15 @@ static class DropAllPatch {
         button.onClick.RemoveAllListeners();
         button.interactable = true;
 
-        foreach (var tip in clone.GetComponentsInChildren<ShowToolTip>(true)) {
-            tip.CustomTextFromCode = Label;
-            tip.CustomTextFromCodeRefreshText2 = () => (Label, (List<(string, string)>)null!, "");
-        }
+        // The template's own ShowToolTip(s) carry row-context flags baked into the prefab
+        // (showCustomFromCode delays display until a hover-hold timer; notInteractableNoTooltip
+        // blanks the text against a stale `selectable` reference) that don't apply to this
+        // clone and silently produced no tooltip at all. Replace with one fresh, default-flagged
+        // instance so our text always renders on hover.
+        foreach (var tip in clone.GetComponentsInChildren<ShowToolTip>(true)) { Object.DestroyImmediate(tip); }
+        var freshTip = clone.AddComponent<ShowToolTip>();
+        freshTip.CustomTextFromCode = Label;
+        freshTip.CustomTextFromCodeRefreshText2 = () => (Label, (List<(string, string)>)null!, "");
         return clone;
     }
 
