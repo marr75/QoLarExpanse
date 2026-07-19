@@ -31,6 +31,8 @@ static class ModuleStackPatch {
     const float EachMinWidth = 60f;
     const float TotalMinWidth = 40f;
     const float Inset = 4f;
+    const float RuleMaxHeight = 6f;
+    const float RuleMinWidth = 40f;
 
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
 
@@ -80,9 +82,10 @@ static class ModuleStackPatch {
 
         var host = weight.transform.parent as RectTransform ?? (RectTransform)row.modules.transform;
         var line = LocalRect((RectTransform)weight.transform, host);
-        var suffix = tons == null ? line : LocalRect((RectTransform)tons!.transform, host);
         var unit = tons == null ? "T" : tons!.text;
         var count = entry.Group.Count;
+        // Measured before any injection so a cloned input's own background can't be mistaken for the rule.
+        var rule = Underline(host, line);
 
         // Own the whole line rather than interleaving: tons is parented under weight, so any reuse of
         // the stock pair doubles the suffix and lands it on a different baseline.
@@ -107,7 +110,7 @@ static class ModuleStackPatch {
             Flow(host, weight, qtyLabel.gameObject, quantity, each, total);
             return;
         }
-        Absolute(host, line, suffix, qtyLabel.gameObject, quantity, each, total);
+        Absolute(host, line, rule, qtyLabel.gameObject, quantity, each, total);
     }
 
     static int Mass(Cargo cargo) =>
@@ -181,29 +184,71 @@ static class ModuleStackPatch {
         }
     }
 
-    // Absolute branch: the WEIGHT line is hand-anchored, so lay the four elements out left to right
-    // across the space the stock figure and its suffix used to occupy. Every element shares y and
-    // height; only x varies, which is what keeps the baselines flush.
-    static void Absolute(RectTransform host, Rect line, Rect suffix, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
+    // The white rule under the value area — a wide, few-px-tall graphic on the weight line. It is the
+    // span the stock figure and the resource AMOUNT input sit above, so it is what the cluster aligns
+    // to. Skip TMP text and our own CI_ widgets so a reused input's background can't pose as the rule.
+    static Rect? Underline(RectTransform host, Rect line) {
+        Rect? best = null;
+        foreach (var graphic in host.GetComponentsInChildren<Graphic>(true)) {
+            if (graphic is TMP_Text || Injected(graphic.transform, host)) {
+                continue;
+            }
+            var rect = LocalRect((RectTransform)graphic.transform, host);
+            var onLine = Mathf.Abs(rect.center.y - line.center.y) <= line.height * 1.5f;
+            if (!onLine || rect.height > RuleMaxHeight || rect.width < RuleMinWidth) {
+                continue;
+            }
+            if (best == null || rect.width > best.Value.width) {
+                best = rect;
+            }
+        }
+        return best;
+    }
+
+    static bool Injected(Transform target, Transform host) {
+        for (var cur = target; cur != null && cur != host; cur = cur.parent) {
+            if (cur.name.StartsWith(CargoListOps.Prefix, System.StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Absolute branch: lay the four elements out left to right inside the underline span with a 4px
+    // inset on both sides. The QTY label is unconditional. When the natural cluster overflows the
+    // span, compress the inter-element gaps first; if zeroed gaps still overflow, spill into the empty
+    // space to the right rather than ever dropping content.
+    static void Absolute(RectTransform host, Rect line, Rect? underline, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
         var height = Mathf.Max(line.height, 22f);
         var y = line.center.y;
-
-        // The label is unconditional: it takes the slot the quantity held, and everything after it
-        // shifts right by LabelWidth + Gap, spilling into empty space rather than ever dropping it.
-        var labelX = line.xMin - Gap - QtyWidth;
-        qtyLabel.SetActive(true);
-        Place(qtyLabel, host, labelX, y, LabelWidth, height);
-        Place(quantity, host, labelX + LabelWidth + Gap, y, QtyWidth, height);
-
         var eachWidth = Width(each, EachMinWidth);
-        Place(each.gameObject, host, line.xMin + LabelWidth + Gap, y, eachWidth, height);
-
-        var totalX = Mathf.Max(suffix.xMax, line.xMin + eachWidth) + LabelWidth + Gap + Gap * 2f;
         var totalWidth = Width(total, TotalMinWidth);
-        Place(total.gameObject, host, totalX, y, totalWidth, height);
 
-        if (totalX + totalWidth > host.rect.xMax) {
-            Plugin.Log.LogWarning($"[C7] line runs to {totalX + totalWidth:0.#}px past host edge {host.rect.xMax:0.#}px");
+        if (underline == null) {
+            Plugin.Log.LogWarning("[C7] no underline rule found; falling back to figure-relative layout");
+        }
+        var span = underline ?? Rect.MinMaxRect(line.xMin - Gap * 2f - QtyWidth - LabelWidth - Inset, line.yMin, host.rect.xMax, line.yMax);
+        var left = span.xMin + Inset;
+        var right = span.xMax - Inset;
+
+        var natural = LabelWidth + QtyWidth + eachWidth + totalWidth + Gap * 3f;
+        var gap = Gap;
+        if (natural > right - left) {
+            gap = Mathf.Max(0f, Gap - (natural - (right - left)) / 3f);
+        }
+
+        var x = left;
+        qtyLabel.SetActive(true);
+        Place(qtyLabel, host, x, y, LabelWidth, height);
+        x += LabelWidth + gap;
+        Place(quantity, host, x, y, QtyWidth, height);
+        x += QtyWidth + gap;
+        Place(each.gameObject, host, x, y, eachWidth, height);
+        x += eachWidth + gap;
+        Place(total.gameObject, host, x, y, totalWidth, height);
+
+        if (x + totalWidth > host.rect.xMax) {
+            Plugin.Log.LogWarning($"[C7] cluster runs to {x + totalWidth:0.#}px past host edge {host.rect.xMax:0.#}px");
         }
     }
 
