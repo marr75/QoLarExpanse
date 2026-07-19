@@ -262,15 +262,15 @@ static class ModuleStackPatch {
         var height = Mathf.Max(line.height, 22f);
         var y = line.center.y;
 
-        // Each slot is sized off its own measured text, not the fixed constants: a fixed slot leaves
-        // dead space behind narrow text (QTY:) and lets wide text (EA: 100T) run into the next slot.
-        var labelWidth = Width(qtyLabel.GetComponent<TextMeshProUGUI>(), 0f);
+        // Each slot is sized off its own text, measured from the string (timing-independent) and
+        // clamped to the pre-polish fixed width as a floor: wide text (EA: 100T) grows the slot, while
+        // a degenerate zero measurement degrades to the old fixed spacing rather than colliding.
+        var labelTmp = qtyLabel.GetComponent<TextMeshProUGUI>();
+        var labelWidth = Width(labelTmp, labelTmp.text, LabelWidth);
         var qtyText = QuantityText(quantity);
-        var qtyTextWidth = Width(qtyText, 0f);
-        var isInput = quantity.GetComponent<TMP_InputField>() != null;
-        var qtyBoxWidth = isInput ? Mathf.Max(qtyTextWidth, QtyWidth) : qtyTextWidth;
-        var eachWidth = Width(each, EachMinWidth);
-        var totalWidth = Width(total, TotalMinWidth);
+        var qtyTextWidth = Width(qtyText, QuantityString(quantity), QtyWidth);
+        var eachWidth = Width(each, each.text, EachMinWidth);
+        var totalWidth = Width(total, total.text, TotalMinWidth);
 
         if (underline == null) {
             Plugin.Log.LogWarning("[C7] no underline rule found; falling back to figure-relative layout");
@@ -285,13 +285,13 @@ static class ModuleStackPatch {
             gap = Mathf.Max(0f, Gap - (natural - (right - left)) / 3f);
         }
 
-        // Advance by measured text width, never by an element's (possibly wider) click-target box:
-        // the input's rect may stay wide for hit-testing, but the next label starts after its text.
+        // Advance by each slot's clamped width so the value box and its advance match: a zero
+        // measurement still advances a full QtyWidth, keeping EA off the quantity value.
         var x = left;
         qtyLabel.SetActive(true);
         Place(qtyLabel, host, x, y, labelWidth, height);
         x += labelWidth + gap;
-        Place(quantity, host, x, y, qtyBoxWidth, height);
+        Place(quantity, host, x, y, qtyTextWidth, height);
         x += qtyTextWidth + gap;
         Place(each.gameObject, host, x, y, eachWidth, height);
         x += eachWidth + gap;
@@ -307,12 +307,19 @@ static class ModuleStackPatch {
         return field != null ? field.textComponent : quantity.GetComponent<TextMeshProUGUI>();
     }
 
+    // The value string just assigned, read off the field (never its stale mesh) so the width measures
+    // what will render.
+    static string QuantityString(GameObject quantity) {
+        var field = quantity.GetComponent<TMP_InputField>();
+        return field != null ? field.text : quantity.GetComponent<TextMeshProUGUI>().text;
+    }
+
     // Layout branch: a layout group owns x placement, so only order and preferred width are ours.
     static void Flow(RectTransform host, TextMeshProUGUI weight, GameObject qtyLabel, GameObject quantity, TextMeshProUGUI each, TextMeshProUGUI total) {
         Sized(qtyLabel, LabelWidth);
         Sized(quantity, QtyWidth);
-        Sized(each.gameObject, Width(each, EachMinWidth));
-        Sized(total.gameObject, Width(total, TotalMinWidth));
+        Sized(each.gameObject, Width(each, each.text, EachMinWidth));
+        Sized(total.gameObject, Width(total, total.text, TotalMinWidth));
 
         var head = weight.transform.GetSiblingIndex();
         qtyLabel.transform.SetSiblingIndex(head);
@@ -321,10 +328,10 @@ static class ModuleStackPatch {
         total.transform.SetSiblingIndex(head + 3);
     }
 
-    static float Width(TMP_Text tmp, float min) {
-        tmp.ForceMeshUpdate();
-        return Mathf.Max(tmp.preferredWidth, min);
-    }
+    // Measure from the string via GetPreferredValues so the result is independent of the mesh's
+    // render state (stale/zero at postfix time), then clamp to the pre-polish fixed width as a floor.
+    static float Width(TMP_Text tmp, string text, float floor) =>
+        Mathf.Max(tmp.GetPreferredValues(text).x, floor);
 
     static void Sized(GameObject go, float width) {
         var element = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
