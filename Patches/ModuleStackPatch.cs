@@ -85,7 +85,7 @@ static class ModuleStackPatch {
         var unit = tons == null ? "T" : tons!.text;
         var count = entry.Group.Count;
         // Measured before any injection so a cloned input's own background can't be mistaken for the rule.
-        var rule = Underline(host, line);
+        var rule = Underline(row.transform, host, line);
 
         // Own the whole line rather than interleaving: tons is parented under weight, so any reuse of
         // the stock pair doubles the suffix and lands it on a different baseline.
@@ -184,13 +184,15 @@ static class ModuleStackPatch {
         }
     }
 
-    // The white rule under the value area — a wide, few-px-tall graphic on the weight line. It is the
-    // span the stock figure and the resource AMOUNT input sit above, so it is what the cluster aligns
-    // to. Skip TMP text and our own CI_ widgets so a reused input's background can't pose as the rule.
-    static Rect? Underline(RectTransform host, Rect line) {
+    // The white rule under the value area — a wide, few-px-tall graphic on the weight line. It lives
+    // outside the weight host (host holds only text and our CI_ clones), so the scan root is the whole
+    // row; host stays the coordinate space so rects compare against line in the same frame. Skip TMP
+    // text and our own CI_ widgets so a reused input's background can't pose as the rule.
+    static Rect? Underline(Transform scanRoot, RectTransform host, Rect line) {
         Rect? best = null;
+        string? winner = null;
         List<string>? rejected = null;
-        foreach (var graphic in host.GetComponentsInChildren<Graphic>(true)) {
+        foreach (var graphic in scanRoot.GetComponentsInChildren<Graphic>(true)) {
             var rect = LocalRect((RectTransform)graphic.transform, host);
             var reason = RejectReason(graphic, host, rect, line);
             if (reason != null) {
@@ -201,7 +203,11 @@ static class ModuleStackPatch {
             }
             if (best == null || rect.width > best.Value.width) {
                 best = rect;
+                winner = graphic.name;
             }
+        }
+        if (best != null) {
+            Plugin.Log.LogInfo($"[C7scan] winner={winner} w={best.Value.width:0.#} h={best.Value.height:0.#}");
         }
         // [C7scan] one-shot per failed scan (root cause of the 22/22 "no underline rule" log still
         // unproven statically): candidate name/active/size/y-delta plus which criterion rejected it.
