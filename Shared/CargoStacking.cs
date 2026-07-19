@@ -17,6 +17,18 @@ static class CargoStacking {
         && cargo.CargoAll == owner
         && !cargo.moduleData.specialAbilityFacilityNew.HasFlag(ESpecialAbilityFacilityNew.CrewTransport);
 
+    // True when this cargo's row represents a multi-member stack: its source list holds at least one
+    // other stackable member of the same module type. Resolved fresh from the live lists every call
+    // — never cached across a rebuild (house invariant). Config gating is the caller's concern.
+    internal static bool IsMultiStackMember(Cargo? cargo, CargoAll? owner) {
+        if (!IsStackable(cargo, owner)) {
+            return false;
+        }
+        var source = new[] { owner!.listCargoGravityAssists, owner.listCargo, owner.listCargoToOrbit }
+            .FirstOrDefault(l => l != null && l.Contains(cargo));
+        return source != null && source.Count(c => IsStackable(c, owner) && c.moduleData == cargo!.moduleData) > 1;
+    }
+
     internal static StackPlan Build(ResourcesList list) {
         var rows = DistinctRows(list);
         var owner = list.cargos;

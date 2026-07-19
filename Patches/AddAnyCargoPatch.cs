@@ -47,7 +47,7 @@ static class KeepEveryModuleRowUnlockedPatch {
             }
 
             if (row.moduleDropDown && row.moduleDropDown.dropDown) {
-                row.moduleDropDown.dropDown.interactable = !cargo.fromAtoBtoC;
+                row.moduleDropDown.dropDown.interactable = !cargo.fromAtoBtoC && !ModuleStackPatch.IsMultiMemberStackRow(row);
             }
 
             if (row.butonDelete) {

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Data.ScriptableObject;
 using Game.ObjectInfoDataScripts;
 using HarmonyLib;
 using Manager;
@@ -55,8 +56,17 @@ static class ModuleStackPatch {
         foreach (var entry in plan.Stacks) {
             Stamp(__instance, entry);
         }
+    }
 
-        Plugin.Log.LogInfo($"[C7] rows={plan.Rows.Count} stacks={plan.Stacks.Count} hidden={plan.Hidden.Count}");
+    // Multi-member stacks no longer support retype (feature retired); their TYPE dropdown stays
+    // locked. Resolved fresh from the live cargo lists — never cached. False when stacking is off,
+    // so the AddAny unlock sweep can call it unconditionally.
+    internal static bool IsMultiMemberStackRow(ResorceRow row) {
+        if (!Services.Config.ModuleStackEnabled.Value || !row) {
+            return false;
+        }
+        var cargo = CargoListOps.CargoOf(row);
+        return CargoStacking.IsMultiStackMember(cargo, cargo?.CargoAll);
     }
 
     static void Strip(ResorceRow row) {
@@ -78,6 +88,12 @@ static class ModuleStackPatch {
         var tons = row.tonsTextModulese;
         if (weight == null || row.modules == null) {
             return;
+        }
+
+        // Retype is retired for multi-member stacks: lock the TYPE dropdown so the stock handler
+        // can't convert only the representative and desync the hidden members.
+        if (entry.Group.Count > 1 && row.moduleDropDown && row.moduleDropDown.dropDown) {
+            row.moduleDropDown.dropDown.interactable = false;
         }
 
         var host = weight.transform.parent as RectTransform ?? (RectTransform)row.modules.transform;
@@ -190,30 +206,13 @@ static class ModuleStackPatch {
     // text and our own CI_ widgets so a reused input's background can't pose as the rule.
     static Rect? Underline(Transform scanRoot, RectTransform host, Rect line) {
         Rect? best = null;
-        string? winner = null;
-        List<string>? rejected = null;
         foreach (var graphic in scanRoot.GetComponentsInChildren<Graphic>(true)) {
             var rect = LocalRect((RectTransform)graphic.transform, host);
-            var reason = RejectReason(graphic, host, rect, line);
-            if (reason != null) {
-                (rejected ??= new List<string>()).Add(
-                    $"{graphic.name} active={graphic.gameObject.activeInHierarchy} w={rect.width:0.#} h={rect.height:0.#} " +
-                    $"yDelta={Mathf.Abs(rect.center.y - line.center.y):0.#} reason={reason}");
+            if (RejectReason(graphic, host, rect, line) != null) {
                 continue;
             }
             if (best == null || rect.width > best.Value.width) {
                 best = rect;
-                winner = graphic.name;
-            }
-        }
-        if (best != null) {
-            Plugin.Log.LogInfo($"[C7scan] winner={winner} w={best.Value.width:0.#} h={best.Value.height:0.#}");
-        }
-        // [C7scan] one-shot per failed scan (root cause of the 22/22 "no underline rule" log still
-        // unproven statically): candidate name/active/size/y-delta plus which criterion rejected it.
-        if (best == null && rejected != null) {
-            foreach (var entry in rejected) {
-                Plugin.Log.LogInfo($"[C7scan] {entry}");
             }
         }
         return best;
@@ -297,7 +296,6 @@ static class ModuleStackPatch {
         quantity.transform.SetSiblingIndex(head + 1);
         each.transform.SetSiblingIndex(head + 2);
         total.transform.SetSiblingIndex(head + 3);
-        Plugin.Log.LogInfo($"[C7] layout-group branch on {host.name}");
     }
 
     static float Width(TextMeshProUGUI tmp, float min) {
@@ -481,5 +479,35 @@ static class ModuleStackGravityAssistPatch {
             }
             owner.InvokeFreeSpaceChange();
         });
+    }
+}
+
+// Single-member stacks keep stock retype (the lone module converts fine), but stock only
+// re-derives weight/EA/total/capacity on the next full rebuild. After a genuine type change fire
+// ONE eager rebuild so those revalidate immediately. Multi-member representatives keep their
+// dropdown locked and never reach here; the InBatch guard stops the rebuild's own re-fire from
+// recursing. No member mutation of any kind.
+[HarmonyPatch(typeof(ResorceRow), nameof(ResorceRow.ModuleDropDownOnonValueChange))]
+static class SingleModuleRetypeRebuildPatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
+
+    [HarmonyPrefix]
+    static void Prefix(ResorceRow __instance, out SpaceModuleDescriptor? __state) =>
+        __state = CargoListOps.CargoOf(__instance)?.moduleData;
+
+    [HarmonyPostfix]
+    static void Postfix(ResorceRow __instance, SpaceModuleDescriptor? __state) {
+        if (CargoListOps.InBatch) {
+            return;
+        }
+        var cargo = CargoListOps.CargoOf(__instance);
+        if (cargo == null || cargo.moduleData == __state || ModuleStackPatch.IsMultiMemberStackRow(__instance)) {
+            return;
+        }
+        var parent = __instance.resourcesListParent;
+        if (!parent || parent.tabCargo == null) {
+            return;
+        }
+        CargoListOps.RunBatch(() => parent.tabCargo.SetDataResourcesList());
     }
 }
