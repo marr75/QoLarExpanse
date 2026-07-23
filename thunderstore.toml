@@ -1,0 +1,29 @@
+[config]
+schemaVersion = "0.0.1"
+
+[package]
+namespace = "marr75"
+name = "QoLarExpanse"
+versionNumber = "0.0.0"
+description = "A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar system with hotkeys, open any screen with one key, and tame the cargo panel."
+websiteUrl = "https://github.com/marr75/QoLarExpanse"
+containsNsfwContent = false
+
+[package.dependencies]
+BepInEx-BepInExPack = "5.4.2100" # TODO(verify): confirm exact Thunderstore dependency string + version
+
+[build]
+icon = "./icon.png"
+readme = "./README.md"
+outdir = "./artifacts/thunderstore"
+
+[[build.copy]]
+source = "./staging/BepInEx/plugins/QoLarExpanse/"
+target = "./BepInEx/plugins/QoLarExpanse/"
+
+[publish]
+repository = "https://thunderstore.io"
+communities = ["solar-expanse"] # TODO(pending ecosystem-schema PR): confirm community slug
+
+[publish.categories]
+solar-expanse = ["mods"]

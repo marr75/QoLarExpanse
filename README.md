@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.png" alt="QoLarExpanse banner">
+</p>
+
 # QoLarExpanse
 
 A grab-bag of quality-of-life fixes for Solar Expanse: jump around the solar system with hotkeys, open any screen with one key, and tame the cargo panel, all without changing how the game actually plays.
