@@ -1,3 +1,6 @@
+# Inert: Thunderstore has no Solar Expanse community, so the release workflow's
+# thunderstore job is commented out. Kept for when one exists; unverified as written.
+
 [config]
 schemaVersion = "0.0.1"
 

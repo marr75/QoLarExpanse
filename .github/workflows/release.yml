@@ -2,46 +2,49 @@ name: release
 
 # Standalone publish workflow. Fires on a published GitHub Release (cut locally by
 # _workspace/release.ps1). No compile step: CI has no game DLLs. It downloads the release
-# zip and mirrors it to Thunderstore and Nexus. This boilerplate is identical across all 9
-# mod repos except the mod name; keep them in sync by hand when it changes.
+# zip and mirrors it to Nexus. This boilerplate is identical across all 9 mod repos except
+# the mod name; keep them in sync by hand when it changes.
 
 on:
   release:
     types: [published]
 
 jobs:
-  thunderstore:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-      - name: Resolve version from tag
-        id: ver
-        shell: bash
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-      - name: Download release zip
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p artifacts
-          gh release download "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "QoLarExpanse-*.zip" \
-            --dir artifacts
-      - name: Stage from release zip
-        shell: bash
-        run: unzip -o "artifacts/QoLarExpanse-${{ steps.ver.outputs.version }}.zip" -d staging
-      - name: Install tcli
-        run: dotnet tool install --global tcli --version 0.2.4
-      - name: Build Thunderstore package
-        run: tcli build --package-version "${{ steps.ver.outputs.version }}"
-      - name: Publish to Thunderstore
-        env:
-          TCLI_AUTH_TOKEN: ${{ secrets.TCLI_AUTH_TOKEN }}
-        run: tcli publish --package-version "${{ steps.ver.outputs.version }}"
+  # Thunderstore has no Solar Expanse community yet, so there is nothing to publish to.
+  # Restore this job (and thunderstore.toml, likewise inert) once one exists.
+  #
+  # thunderstore:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-dotnet@v4
+  #       with:
+  #         dotnet-version: "8.0.x"
+  #     - name: Resolve version from tag
+  #       id: ver
+  #       shell: bash
+  #       run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+  #     - name: Download release zip
+  #       shell: bash
+  #       env:
+  #         GH_TOKEN: ${{ github.token }}
+  #       run: |
+  #         mkdir -p artifacts
+  #         gh release download "$GITHUB_REF_NAME" \
+  #           --repo "$GITHUB_REPOSITORY" \
+  #           --pattern "QoLarExpanse-*.zip" \
+  #           --dir artifacts
+  #     - name: Stage from release zip
+  #       shell: bash
+  #       run: unzip -o "artifacts/QoLarExpanse-${{ steps.ver.outputs.version }}.zip" -d staging
+  #     - name: Install tcli
+  #       run: dotnet tool install --global tcli --version 0.2.4
+  #     - name: Build Thunderstore package
+  #       run: tcli build --package-version "${{ steps.ver.outputs.version }}"
+  #     - name: Publish to Thunderstore
+  #       env:
+  #         TCLI_AUTH_TOKEN: ${{ secrets.TCLI_AUTH_TOKEN }}
+  #       run: tcli publish --package-version "${{ steps.ver.outputs.version }}"
 
   nexus:
     runs-on: ubuntu-latest
