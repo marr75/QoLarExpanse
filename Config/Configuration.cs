@@ -12,6 +12,7 @@ sealed class Configuration {
 
     public readonly ConfigEntry<bool> DropAllEnabled;
     public readonly ConfigEntry<bool> HideContractPopupsOnLoad;
+    public readonly ConfigEntry<bool> HideCorporationLogo;
     public readonly ConfigEntry<KeyboardShortcut> MarketScreenKey;
     public readonly ConfigEntry<bool> MasterEnabled;
 
@@ -35,6 +36,7 @@ sealed class Configuration {
 
     public readonly ConfigEntry<bool> SearchNavigationEnabled;
     public readonly ConfigEntry<KeyboardShortcut> SearchScreenKey;
+    public readonly ConfigEntry<bool> StatusDropdownEnabled;
     public readonly ConfigEntry<bool> StopArrowKeysMovingMap;
     public readonly ConfigEntry<KeyboardShortcut> SwapOriginDestinationKey;
     public readonly ConfigEntry<KeyboardShortcut> ToggleDestinationOrbitKey;
@@ -272,6 +274,18 @@ sealed class Configuration {
             "Keep every module row's dropdown and delete usable, not just the most recently added one, so you can "
             + "add or swap any module freely.";
         AddAnyEnabled = c.Bind("Cargo", "AddAnyEnabled", true, addAnyEnableDescription);
+
+        const string statusDropdownEnableDescription =
+            "Collect the status labels that other mods add to the top bar (life support, fleets, power, "
+            + "resources, launch windows, AI player intel) into a single dropdown next to the notifications "
+            + "button, instead of leaving them strung across the top of the screen. Only the mods you actually "
+            + "have installed appear.";
+        StatusDropdownEnabled = c.Bind("Top Bar", "StatusDropdownEnabled", true, statusDropdownEnableDescription);
+
+        const string hideCorporationLogoDescription =
+            "Hide the company logo in the top-left corner to free up room along the top bar. Purely cosmetic — "
+            + "nothing else reads it.";
+        HideCorporationLogo = c.Bind("Top Bar", "HideCorporationLogo", false, hideCorporationLogoDescription);
 
         const string deferBottomBarClicksToSimpleTweaksDescription =
             "Advanced compatibility option. If you also run Simple Tweaks, both mods react to Ctrl-clicks "
