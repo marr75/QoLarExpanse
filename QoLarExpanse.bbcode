@@ -11,6 +11,7 @@ Quality-of-life fixes for Solar Expanse: jump around the solar system with hotke
 [*][b]Quick save and load.[/b] One key writes a fresh save, another reloads your most recent one, with an on-screen confirmation.[/*]
 [*][b]Calmer contract loading.[/b] Loading a save full of contracts no longer spams a popup and a sound for every restored contract.[/*]
 [*][b]A tidier cargo panel.[/b] Identical modules collapse into one row with a quantity you can edit directly, a Drop All button clears leftover cargo in one click, and every module row stays editable so you can add or swap any module whenever you like.[/*]
+[*][b]Ships as tiles, not rows.[/b] A body's ships and launch vehicles show up as square icon tiles matching the facility and module tiles, instead of a full-width row each, so a developed body's whole panel fits without scrolling. A tile standing for several ships of one type carries the count in its corner, the same way a facility tile does. Everything still works from the tile: drag it to plan a mission or reorder the build queue, click it for the full ship screen, watch the build shade fill, and cancel a single ship in progress with the X in its corner. The row's small info button goes with the labels, so the type preview it used to open is no longer reachable; a plain click on the tile opens the full ship screen, which says everything that preview did and lets you delete the ship as well.[/*]
 [/list]
 
 [size=5]Media[/size]
@@ -93,6 +94,7 @@ Settings live in [font=Consolas]BepInEx/config/marr75.solarexpanse.qolarexpanse.
 [list]
 [*][b][font=Consolas]MasterEnabled[/font][/b]: the whole-mod off switch.[/*]
 [*][b][font=Consolas]ModuleStackEnabled[/font][/b]: turn off if you prefer one row per module.[/*]
+[*][b][font=Consolas]ShipTilesEnabled[/font][/b]: turn off if you prefer one full-width row per ship in a body's info window.[/*]
 [*][b][font=Consolas]StopArrowKeysMovingMap[/font][/b]: turn off if it fights another camera setup.[/*]
 [*][b][font=Consolas]DeferBottomBarClicksToSimpleTweaks[/font][/b] (Advanced): only turn on if you also run Simple Tweaks and its quick-access-bar Ctrl-click jumps to orbit twice; Ctrl-clicking bodies in the main view is unaffected either way.[/*]
 [/list]

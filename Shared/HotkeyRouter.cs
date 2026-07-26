@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq;
+using BepInEx.Configuration;
 using Data;
 using Game.Info;
 using Game.UI;
@@ -19,9 +20,16 @@ sealed class HotkeyRouter : MonoBehaviour {
     // before the sim state they hold is torn down by a save/load, same as the pause-menu path does.
     const float QuiesceSeconds = 0.25f;
 
+    // TEMPORARY INSTRUMENTATION — delete with Shared/ShipTileDump.cs before release. Dead unless a
+    // developer flips ShipTileDump.Diagnostics and rebuilds; never config-gated, because a user-facing key
+    // to switch on our own debugging is churn in their config file that never gets cleaned up.
+    static readonly KeyboardShortcut ShipTileDumpKey = new(KeyCode.F9, KeyCode.LeftControl, KeyCode.LeftShift);
+
     static HotkeyRouter? _instance;
 
     void Update() {
+        if (ShipTileDump.Diagnostics && ShipTileDumpKey.IsDown()) { ShipTileDump.Write(); }
+
         if (!Services.Config.MasterEnabled.Value || TypingInField()) { return; }
 
         if (Services.Config.BodyNavigationEnabled.Value) {

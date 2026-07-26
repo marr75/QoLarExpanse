@@ -4,28 +4,32 @@ using UnityEngine.UI;
 
 namespace QoLarExpanse.Shared;
 
-// Idempotency key for the container swap. Lives and dies with the row container, so a closed window
-// cannot leave a stale "already set up" entry behind the way a static set would.
+// Per-container marker and the layout swap itself. Lives and dies with the row container, so a closed
+// window cannot leave a stale "already set up" entry behind the way a static set would.
 class ShipTileGrid : MonoBehaviour {
-    int itemsInARow;
-    UIRocketList? list;
-    float rowHeight;
-    VerticalLayoutGroup? suspended;
+    internal bool Applied { get; private set; }
+
+    internal string Replaced { get; private set; } = "nothing";
+
+    internal int VanillaItemsInARow { get; private set; }
+
+    internal float VanillaRowHeight { get; private set; }
 
     internal void Capture(UIRocketList owner) {
-        list = owner;
-        itemsInARow = owner.itemsInARow;
-        rowHeight = owner.rowHeight;
+        VanillaItemsInARow = owner.itemsInARow;
+        VanillaRowHeight = owner.rowHeight;
     }
 
-    internal void Suspend(VerticalLayoutGroup vertical) { suspended = vertical; }
+    internal void MarkApplied() { Applied = true; }
 
-    internal void Restore() {
-        if (GetComponent<GridLayoutGroup>() is { } grid) { grid.enabled = false; }
-        if (suspended != null) { suspended.enabled = true; }
-        if (list == null) { return; }
-        list.itemsInARow = itemsInARow;
-        list.rowHeight = rowHeight;
-        list.ConformSizeAndScrollbarsToVisibleContent();
+    // LayoutGroup carries [DisallowMultipleComponent], so AddComponent<GridLayoutGroup> returns null
+    // while vanilla's VerticalLayoutGroup is still attached — disabling it is not enough, it has to go.
+    internal GridLayoutGroup? SwapInGrid() {
+        if (GetComponent<GridLayoutGroup>() is { } existing) { return existing; }
+        if (GetComponent<LayoutGroup>() is { } blocking) {
+            Replaced = blocking.GetType().Name;
+            DestroyImmediate(blocking);
+        }
+        return gameObject.AddComponent<GridLayoutGroup>();
     }
 }

@@ -1,17 +1,23 @@
 using System;
+using System.Collections.Generic;
 using Game.UI.Windows.Elements.ObjectInfoElements;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace QoLarExpanse.Shared;
 
-// Reshapes object-info ship rows into facility-sized square tiles. Every metric is read off the
-// facility list's prefab and container; nothing is ever written back through either.
+// Reshapes object-info ship rows into facility-sized square tiles. The cell size is read off the
+// facility list's prefab and container; nothing is ever written back through either. Corner placement
+// is deliberately ours rather than copied from the facility prefab — see PinToCorner.
 static class ShipTiles {
     const float FallbackCell = 64f;
     const float FallbackSpacing = 4f;
-    const float FallbackCornerInset = 2f;
-    const float FallbackCornerSize = 18f;
+    const float CornerInset = 2f;
+    const float CancelCellFraction = 0.33f;
+    const float MinCancelSide = 12f;
+    const float CueWidth = 6f;
+
+    static readonly Vector2 CancelCorner = new(1f, 1f);
 
     static bool logged;
 
@@ -23,19 +29,18 @@ static class ShipTiles {
 
     internal static void SetUpList(UIRocketList? list, UIFacilityList? facilities) {
         if (list == null || list.parentPrefab == null) { return; }
-        if (list.parentPrefab.GetComponent<ShipTileGrid>() != null) { return; }
-
-        var metrics = TileMetrics.Resolve(facilities);
-        var marker = list.parentPrefab.gameObject.AddComponent<ShipTileGrid>();
+        var marker = list.parentPrefab.GetComponent<ShipTileGrid>()
+            ?? list.parentPrefab.gameObject.AddComponent<ShipTileGrid>();
+        if (marker.Applied) { return; }
         marker.Capture(list);
 
-        if (list.parentPrefab.GetComponent<VerticalLayoutGroup>() is { } vertical) {
-            marker.Suspend(vertical);
-            vertical.enabled = false;
+        var grid = marker.SwapInGrid();
+        if (grid == null) {
+            Plugin.Log.LogWarning("Ship tiles: row container refused a GridLayoutGroup; ships stay as vanilla rows.");
+            return;
         }
 
-        var grid = list.parentPrefab.GetComponent<GridLayoutGroup>()
-            ?? list.parentPrefab.gameObject.AddComponent<GridLayoutGroup>();
+        var metrics = TileMetrics.Resolve(facilities);
         grid.enabled = true;
         grid.cellSize = metrics.Cell;
         grid.spacing = new Vector2(FallbackSpacing, FallbackSpacing);
@@ -55,6 +60,7 @@ static class ShipTiles {
             grid.childAlignment = source.childAlignment;
         }
 
+        marker.MarkApplied();
         AlignSizing(list);
     }
 
@@ -62,7 +68,7 @@ static class ShipTiles {
     // to describe the tile grid or the panel stays as tall as it was.
     internal static void AlignSizing(UIRocketList? list) {
         if (list == null || list.parentPrefab == null) { return; }
-        if (list.parentPrefab.GetComponent<ShipTileGrid>() == null) { return; }
+        if (list.parentPrefab.GetComponent<ShipTileGrid>() is not { Applied: true }) { return; }
         if (list.parentPrefab.GetComponent<GridLayoutGroup>() is not { enabled: true } grid) { return; }
 
         list.itemsInARow = Columns(grid, list.parentPrefab as RectTransform);
@@ -80,27 +86,118 @@ static class ShipTiles {
         return Mathf.Max(1, Mathf.FloorToInt(usable / stride));
     }
 
+    // Keeps a list rather than a hide list: everything we cannot name gets switched off. The prefab is
+    // not visible in the decompile, so naming what to remove is exactly the guess that cannot be made.
     internal static void Reshape(UIRowRocket row, UIFacilityList? facilities) {
         var metrics = TileMetrics.Resolve(facilities);
         var state = row.GetComponent<ShipTileState>() ?? row.gameObject.AddComponent<ShipTileState>();
-        state.Capture(row);
-        state.Suspend();
-        state.HideCaptured();
 
         var host = (RectTransform)row.transform;
-        Fill(Adopt((RectTransform)row.iconWithProgressBar.transform, host));
-        metrics.Badge.Apply(Adopt((RectTransform)row.stackCounter.transform, host));
-        metrics.Cancel.Apply(Adopt((RectTransform)row.buttonCancelConstruction.transform, host));
-        if (row.linaQueryChange != null) { row.linaQueryChange.transform.SetAsLastSibling(); }
+        var cancel = (RectTransform)row.buttonCancelConstruction.transform;
+        var cue = DirectChild(host, row.linaQueryChange == null ? null : row.linaQueryChange.transform);
+        var spanning = Spanning(row, host);
+
+        var touched = new List<RectTransform>(spanning) { cancel };
+        if (cue != null) { touched.Add(cue); }
+        state.Begin(touched);
+
+        // Before the sweep, so the sweep sees it as a direct child rather than switching off the button
+        // strip it was nested in and taking it along.
+        Reparent(cancel, host);
+        state.KeepOnly(host, touched);
+
+        foreach (var rect in spanning) {
+            Fill(rect);
+            rect.SetAsLastSibling();
+        }
+        if (cue != null) {
+            PinToLeftEdge(cue);
+            cue.SetAsLastSibling();
+        }
+        PinCancel(cancel, metrics.Cell.x);
+        cancel.SetAsLastSibling();
+
+        state.SwitchOff(row.rocketNameTextMeshPro);
+        state.SwitchOff(row.rocketTypeTextMeshPro);
+        state.SwitchOff(row.capacityTextMeshPro);
+        state.SwitchOff(row.fuelCapacityTextMeshPro);
+        state.SwitchOff(row.infoButton);
 
         // Facility tiles read "3", so the ship badge does too rather than vanilla's "x3".
         if (row.CurrentStackedRowRocketData is { } stack) { row.stackCounter.text = stack.Count.ToString(); }
     }
 
-    static RectTransform Adopt(RectTransform rect, RectTransform host) {
+    // Direct children of the row root that have to span the whole tile, in draw order: the hover
+    // highlight, the toggle's click and selection graphics, then the icon on top. Read off the live row,
+    // so a graphic we never knew about is resized rather than left at full row width. The count badge is
+    // deliberately absent — it is stretch-anchored inside the icon, so stretching the icon carries it.
+    static List<RectTransform> Spanning(UIRowRocket row, RectTransform host) {
+        var found = new List<RectTransform>();
+        Include(found, host, row.dragAndDropHighlight == null ? null : row.dragAndDropHighlight.transform);
+        var toggle = row.Toggle;
+        if (toggle != null) {
+            Include(found, host, toggle.targetGraphic == null ? null : toggle.targetGraphic.transform);
+            Include(found, host, toggle.graphic == null ? null : toggle.graphic.transform);
+        }
+        Include(found, host, row.iconWithProgressBar.transform);
+        return found;
+    }
+
+    static void Include(List<RectTransform> into, RectTransform host, Transform? node) {
+        if (DirectChild(host, node) is { } rect && !into.Contains(rect)) { into.Add(rect); }
+    }
+
+    // Walks up to the child that sits directly under the row root, so a stretch or a corner snapshot is
+    // expressed in tile space: vanilla nests these inside wrappers it toggles by parent.
+    static RectTransform? DirectChild(Transform? host, Transform? node) {
+        if (host == null) { return null; }
+        for (var walk = node; walk != null && walk.parent != null; walk = walk.parent) {
+            if (walk.parent == host) { return walk as RectTransform; }
+        }
+        return null;
+    }
+
+    static void Reparent(RectTransform rect, RectTransform host) {
         if (rect.parent != host) { rect.SetParent(host, false); }
-        rect.SetAsLastSibling();
-        return rect;
+    }
+
+    // The cancel button's width came from the button strip's HorizontalLayoutGroup, so once lifted out it
+    // has no size of its own left. It gets an explicit square sized off the cell, applied as scale over
+    // its designed side rather than as a smaller rect: its glyph child insets by a fixed 8px per side, so
+    // shrinking the rect would drive that inset negative and delete the X. Scaling keeps it proportional.
+    static void PinCancel(RectTransform rect, float cell) {
+        var target = Mathf.Max(cell * CancelCellFraction, MinCancelSide);
+        var designed = DesignedSide(rect, target);
+        var scale = target / designed;
+        rect.sizeDelta = new Vector2(designed, designed);
+        rect.localScale = new Vector3(scale, scale, 1f);
+        rect.anchorMin = CancelCorner;
+        rect.anchorMax = CancelCorner;
+        rect.pivot = CancelCorner;
+        rect.anchoredPosition = new Vector2(-CornerInset, -CornerInset);
+    }
+
+    // The resolved rect first: it is the one size that is valid under stretch anchors, where sizeDelta is
+    // an inset from the parent rather than a size and is routinely zero or negative.
+    static float DesignedSide(RectTransform rect, float fallback) {
+        var resolved = Mathf.Max(rect.rect.width, rect.rect.height);
+        if (resolved > 1f) { return resolved; }
+        if (rect.GetComponent<LayoutElement>() is { } element) {
+            var preferred = Mathf.Max(element.preferredWidth, element.preferredHeight);
+            if (preferred > 1f) { return preferred; }
+        }
+        return fallback;
+    }
+
+    // A thin vertical line down the left edge, matching the facility tile's drop cue. The ship prefab
+    // ships a full-width horizontal bar instead, which suits a vertical row list and not a tile grid.
+    static void PinToLeftEdge(RectTransform rect) {
+        rect.localScale = Vector3.one;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(CueWidth, 0f);
     }
 
     static void Fill(RectTransform rect) {
@@ -114,14 +211,10 @@ static class ShipTiles {
 
     readonly struct TileMetrics {
         public readonly Vector2 Cell;
-        public readonly RectSnapshot Badge;
-        public readonly RectSnapshot Cancel;
         public readonly GridLayoutGroup? Reference;
 
-        TileMetrics(Vector2 cell, RectSnapshot badge, RectSnapshot cancel, GridLayoutGroup? reference) {
+        TileMetrics(Vector2 cell, GridLayoutGroup? reference) {
             Cell = cell;
-            Badge = badge;
-            Cancel = cancel;
             Reference = reference;
         }
 
@@ -151,22 +244,7 @@ static class ShipTiles {
             }
             else if (facilities != null && facilities.rowHeight > 1f) { side = facilities.rowHeight; }
 
-            var badge = Corner(prefabRect, prefab == null ? null : prefab.textCount?.transform)
-                ?? RectSnapshot.Inset(new Vector2(1f, 0f), FallbackCornerInset, FallbackCornerSize);
-            var cancel = Corner(prefabRect, prefab == null ? null : prefab.ButtonCancel?.transform)
-                ?? RectSnapshot.Inset(new Vector2(1f, 1f), FallbackCornerInset, FallbackCornerSize);
-
-            return new TileMetrics(new Vector2(side, side), badge, cancel, reference);
-        }
-
-        // Walks up to the child that sits directly under the row root, so the snapshot is expressed in
-        // row space: vanilla nests the facility count label inside a wrapper it toggles by parent.
-        static RectSnapshot? Corner(RectTransform? host, Transform? node) {
-            if (host == null || node == null) { return null; }
-            for (var walk = node; walk != null && walk.parent != null; walk = walk.parent) {
-                if (walk.parent == host) { return walk is RectTransform rect ? RectSnapshot.Of(rect) : null; }
-            }
-            return null;
+            return new TileMetrics(new Vector2(side, side), reference);
         }
     }
 }
@@ -204,15 +282,6 @@ readonly struct RectSnapshot {
             rect.sizeDelta,
             rect.localScale
         );
-
-    // Hardcoded corner, used only when the facility prefab has no readable badge or cancel rect.
-    internal static RectSnapshot Inset(Vector2 corner, float inset, float size) {
-        var offset = new Vector2(
-            corner.x > 0.5f ? -inset : inset,
-            corner.y > 0.5f ? -inset : inset
-        );
-        return new RectSnapshot(corner, corner, corner, offset, new Vector2(size, size), Vector3.one);
-    }
 
     internal void Apply(RectTransform rect) {
         rect.localScale = localScale;
