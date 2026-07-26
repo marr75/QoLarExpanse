@@ -49,6 +49,7 @@ static class ShipTileDump {
             return;
         }
         text.AppendLine($"## {label} ObjectInfoWindow open={window.Open} body={BodyName(window)}");
+        DumpSections(text, window);
         DumpFacilityList(text, window.facilityList);
         DumpRocketList(text, "rocketList", window.rocketList);
         DumpRocketList(text, "launchVehicleList", window.launchVehicleList);
@@ -56,6 +57,62 @@ static class ShipTileDump {
 
     static string BodyName(ObjectInfoWindow window) =>
         window.ObjectInfoCurrent == null ? "<none>" : window.ObjectInfoCurrent.ObjectName;
+
+    // The one question the code-side suppression path cannot answer in advance: which ancestor of the
+    // launch vehicle expand button is safe to hide, and what the prefab actually parents where.
+    static void DumpSections(StringBuilder text, ObjectInfoWindow window) {
+        text.AppendLine();
+        var sections = window.objectInfoCollapseSections;
+        if (sections == null) {
+            text.AppendLine("### collapseSections: absent");
+            return;
+        }
+        text.AppendLine("### collapseSections");
+        text.AppendLine(
+            sections.mainRectTransform == null ? "main: absent" : $"main: {Chain(sections.mainRectTransform)}"
+        );
+
+        var count = sections.scrollRects == null ? 0 : sections.scrollRects.Count;
+        for (var index = 0; index < count; index++) {
+            text.AppendLine($"-- section {index} {(ObjectInfoCollapseSections.SectionObjectInfo)index} --");
+            var button = Entry(sections.expandButtons, index);
+            text.AppendLine(
+                button == null
+                    ? "  expandButton: absent"
+                    : $"  expandButton: {Chain(button.transform)} act={button.gameObject.activeSelf}"
+                    + $" interactable={button.interactable}"
+            );
+            var icon = Entry(sections.buttonsIcons, index);
+            text.AppendLine(
+                icon == null
+                    ? "  buttonIcon: absent"
+                    : $"  buttonIcon: {icon.name} sprite={(icon.sprite == null ? "<none>" : icon.sprite.name)}"
+            );
+            var scroll = Entry(sections.scrollRects, index);
+            text.AppendLine(
+                scroll == null
+                    ? "  scrollRect: absent"
+                    : $"  scrollRect: {Chain(scroll.transform)} act={scroll.gameObject.activeSelf}"
+                    + $" enabled={scroll.enabled} {Rect(scroll.transform as RectTransform)}"
+            );
+            var uiList = Entry(sections.uiLists, index);
+            text.AppendLine(uiList == null ? "  uiList: absent" : $"  uiList: {uiList.GetType().Name} on {uiList.name}");
+        }
+
+        var header = ShipSections.Header(sections);
+        text.AppendLine(header == null ? "resolvedHeader: none" : $"resolvedHeader: {Chain(header.transform)}");
+        var wrench = window.launchVehicleList == null ? null : window.launchVehicleList.buttonAction;
+        text.AppendLine(
+            wrench == null
+                ? "buttonAction: absent"
+                : $"buttonAction: {Chain(wrench.transform)} act={wrench.gameObject.activeSelf}"
+        );
+        var state = window.GetComponent<ShipSectionState>();
+        text.AppendLine(state == null ? "sectionState: none" : $"sectionState: {state.Describe()}");
+    }
+
+    static T? Entry<T>(List<T>? list, int index) where T : Component =>
+        list == null || index >= list.Count || (Component?)list[index] == null ? null : list[index];
 
     static void DumpFacilityList(StringBuilder text, UIFacilityList? list) {
         text.AppendLine();

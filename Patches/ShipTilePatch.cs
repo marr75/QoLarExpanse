@@ -58,3 +58,58 @@ static class ShipTileListPatch {
         catch (Exception ex) { ShipTiles.LogOnce("list sizing", ex); }
     }
 }
+
+// Launch vehicles accrue to a surface and never to an orbit, so the always-empty section is suppressed
+// while an orbital location is selected. Both refresh entry points are covered. SetData is referenced by
+// string with argument types: it is private, and the public SetData(object) override shares the name.
+[HarmonyPatch(typeof(ObjectInfoWindow), "SetData", typeof(ObjectInfoData), typeof(bool))]
+static class LaunchVehicleSectionSetDataPatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ShipTilesEnabled.Value;
+
+    [HarmonyPostfix]
+    static void Postfix(ObjectInfoWindow __instance) {
+        try { ShipSections.Apply(__instance); }
+        catch (Exception ex) { ShipTiles.LogOnce("launch vehicle section", ex); }
+    }
+}
+
+[HarmonyPatch(typeof(ObjectInfoWindow), nameof(ObjectInfoWindow.RefreshSCLVList))]
+static class LaunchVehicleSectionRefreshPatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ShipTilesEnabled.Value;
+
+    [HarmonyPostfix]
+    static void Postfix(ObjectInfoWindow __instance) {
+        try { ShipSections.Apply(__instance); }
+        catch (Exception ex) { ShipTiles.LogOnce("launch vehicle section refresh", ex); }
+    }
+}
+
+// OnAddLV force-expands the section after a queued build; in orbit that would undo suppression until the
+// next refresh. It only opens a section — the build picker is opened by UIRocketList.OnClickButton.
+[HarmonyPatch(typeof(ObjectInfoWindow), nameof(ObjectInfoWindow.OnAddLV))]
+static class LaunchVehicleSectionOpenPatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ShipTilesEnabled.Value;
+
+    [HarmonyPrefix]
+    static bool Prefix(ObjectInfoWindow __instance) => !ShipSections.Suppressed(__instance);
+}
+
+// The tile hid the ship name label, which carried both the craft's parked location and any third-party
+// annotation. The tooltip carries them instead. GetTooltip is protected, so it is referenced by string.
+[HarmonyPatch(typeof(UIRowRocket), "GetTooltip")]
+static class ShipTileTooltipPatch {
+    static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ShipTilesEnabled.Value;
+
+    [HarmonyPostfix]
+    static void Postfix(UIRowRocket __instance, ref (string, List<(string, string)>, string) __result) {
+        try {
+            if (ShipTileTooltip.Host(__instance) is not { } window) { return; }
+            var location = ShipTileTooltip.ParkedElsewhere(__instance, window);
+            if (location != null) { __result.Item1 = $"{__result.Item1}\n<color=#9FD3FF>{location}</color>"; }
+            if (ShipTileTooltip.Annotation(__instance, location) is { } annotation) {
+                __result.Item1 = $"{__result.Item1}\n{annotation}";
+            }
+        }
+        catch (Exception ex) { ShipTiles.LogOnce("tooltip annotation", ex); }
+    }
+}

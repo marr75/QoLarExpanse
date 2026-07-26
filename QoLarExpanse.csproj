@@ -4,7 +4,7 @@
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>QoLarExpanse</AssemblyName>
     <Product>QoLarExpanse</Product>
-    <Version>0.2.0</Version>
+    <Version>0.4.0</Version>
     <BepInExPluginGuid>marr75.solarexpanse.qolarexpanse</BepInExPluginGuid>
   </PropertyGroup>
 
