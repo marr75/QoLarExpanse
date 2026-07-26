@@ -13,9 +13,6 @@ using UnityEngine.UI;
 
 namespace QoLarExpanse.Shared;
 
-// TEMPORARY INSTRUMENTATION — delete this whole file before release, with the ShipTileDumpKey branch in
-// HotkeyRouter. Writes the object info window's facility and ship row hierarchies to a file so a vanilla
-// row and a reshaped row can be diffed. Nothing here is called from a patch.
 static class ShipTileDump {
     // The whole enablement path: flip to true, rebuild. A const rather than a config key so a stock build
     // compiles the hotkey branch away and no switch for our own debugging reaches an end user's config.
