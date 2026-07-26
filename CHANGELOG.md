@@ -7,15 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-07-26
 
-### Fixed
-
-- The always-empty LAUNCH VEHICLES section no longer renders while an orbital location is selected — header, build button and list together — so the sections below take the space. Hovering a ship tile now names the craft's parked location when it differs from the object on screen, and carries any annotation another mod adds to that ship, both of which the tile reshape had cost. All of it rides `Object Info / ShipTilesEnabled`.
+### Added
+- Ship and launch-vehicle lists in a body's info window render as square icon tiles matching the facility and module tiles instead of full-width rows, keeping drag and drop, click-for-details, the build-progress shade, a stacked-ship count badge and a per-ship cancel X. The per-row info button is hidden along with the name, type, capacity and fuel labels, so the ship-type preview it opened is no longer reachable; a plain click still opens the full ship screen. `Object Info / ShipTilesEnabled`, on by default.
+- The always-empty LAUNCH VEHICLES section no longer renders while an orbital location is selected
 
 ## [0.3.0] - 2026-07-25
 
 ### Added
 
-- Ship and launch-vehicle lists in a body's info window render as square icon tiles matching the facility and module tiles instead of full-width rows, keeping drag and drop, click-for-details, the build-progress shade, a stacked-ship count badge and a per-ship cancel X. The per-row info button is hidden along with the name, type, capacity and fuel labels, so the ship-type preview it opened is no longer reachable; a plain click still opens the full ship screen. `Object Info / ShipTilesEnabled`, on by default.
 - Modded outliners dropdown: the status labels other mods add to the top bar (life support, fleets, power, resources, launch windows, AI player intel) are collected into one dropdown next to the notifications button instead of being strung across the screen. Only installed mods appear. `Top Bar / StatusDropdownEnabled`, on by default.
 - `Top Bar / HideCorporationLogo` hides the top-left company logo to free up room along the bar. Off by default.
 
