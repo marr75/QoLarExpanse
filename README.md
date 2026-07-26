@@ -30,6 +30,7 @@ https://github.com/user-attachments/assets/429a75d9-c35b-41ff-9608-ab2667143b51
 - **Quick save and load.** One key writes a fresh save, another reloads your most recent one, with an on-screen confirmation.
 - **Calmer contract loading.** Loading a save full of contracts no longer spams a popup and a sound for every restored contract.
 - **A tidier cargo panel.** Identical modules collapse into one row with a quantity you can edit directly, a Drop All button clears leftover cargo in one click, and every module row stays editable so you can add or swap any module whenever you like.
+- **Ships as tiles, not rows.** A body's ships and launch vehicles show up as square icon tiles matching the facility and module tiles, instead of a full-width row each, so a developed body's whole panel fits without scrolling. Everything still works from the tile: drag it to plan a mission or reorder the build queue, click it for the full ship screen, watch the build shade fill, and cancel a single ship in progress with the X in its corner.
 
 <table>
 <tr>
@@ -62,6 +63,7 @@ Settings live in `BepInEx/config/marr75.solarexpanse.qolarexpanse.cfg` and can a
 
 - **`MasterEnabled`**: the whole-mod off switch.
 - **`ModuleStackEnabled`**: turn off if you prefer one row per module.
+- **`ShipTilesEnabled`**: turn off if you prefer one full-width row per ship in a body's info window.
 - **`StopArrowKeysMovingMap`**: turn off if it fights another camera setup.
 - **`DeferBottomBarClicksToSimpleTweaks`** (Advanced): only turn on if you also run Simple Tweaks and its quick-access-bar Ctrl-click jumps to orbit twice; Ctrl-clicking bodies in the main view is unaffected either way.
 

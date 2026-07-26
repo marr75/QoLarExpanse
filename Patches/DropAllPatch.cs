@@ -118,7 +118,7 @@ static class DropAllPatch {
         foreach (var tip in clone.GetComponentsInChildren<ShowToolTip>(true)) { Object.DestroyImmediate(tip); }
         var freshTip = clone.AddComponent<ShowToolTip>();
         freshTip.CustomTextFromCode = Label;
-        freshTip.CustomTextFromCodeRefreshText2 = () => (Label, (List<(string, string)>)null!, "");
+        freshTip.CustomTextFromCodeRefreshText2 = () => (Label, null!, "");
         return clone;
     }
 
