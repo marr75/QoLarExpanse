@@ -7,12 +7,17 @@ sealed class Configuration {
     public readonly ConfigEntry<bool> AddAnyEnabled;
 
     public readonly ConfigEntry<bool> BodyNavigationEnabled;
+    public readonly ConfigEntry<bool> ContractsSlideEnabled;
+    public readonly ConfigEntry<bool> ContractsSlideHoverEnabled;
+    public readonly ConfigEntry<bool> ContractsStartOutOfView;
 
     public readonly ConfigEntry<bool> DeferBottomBarClicksToSimpleTweaks;
+    public readonly ConfigEntry<bool> DiagnosticsEnabled;
 
     public readonly ConfigEntry<bool> DropAllEnabled;
     public readonly ConfigEntry<bool> HideContractPopupsOnLoad;
     public readonly ConfigEntry<bool> HideCorporationLogo;
+    public readonly ConfigEntry<KeyboardShortcut> LandmarkDumpKey;
     public readonly ConfigEntry<KeyboardShortcut> MarketScreenKey;
     public readonly ConfigEntry<bool> MasterEnabled;
 
@@ -23,8 +28,11 @@ sealed class Configuration {
     public readonly ConfigEntry<KeyboardShortcut> NextMoonKey;
     public readonly ConfigEntry<bool> OrbitalClickEnabled;
     public readonly ConfigEntry<bool> OrbitalDragTargetingEnabled;
+    public readonly ConfigEntry<KeyboardShortcut> OverviewDumpKey;
     public readonly ConfigEntry<KeyboardShortcut> PlanBackKey;
     public readonly ConfigEntry<KeyboardShortcut> PlanNextKey;
+    public readonly ConfigEntry<int> PointerClimbLevels;
+    public readonly ConfigEntry<KeyboardShortcut> PointerDumpKey;
     public readonly ConfigEntry<KeyboardShortcut> PreviousBodyKey;
     public readonly ConfigEntry<KeyboardShortcut> PreviousMoonKey;
     public readonly ConfigEntry<KeyboardShortcut> QuickLoadKey;
@@ -295,6 +303,34 @@ sealed class Configuration {
             + "nothing else reads it.";
         HideCorporationLogo = c.Bind("Top Bar", "HideCorporationLogo", false, hideCorporationLogoDescription);
 
+        const string contractsSlideEnableDescription =
+            "Slide the whole contracts section, header included, off the left edge of the screen to free up the "
+            + "column it reserves. Click the section's own header to push it out, and a small tab at the screen's "
+            + "left margin to bring it back. While this is on, the header slides the section instead of folding "
+            + "the list, so there is one control rather than two.";
+        ContractsSlideEnabled = c.Bind("Contracts", "ContractsSlideEnabled", false, contractsSlideEnableDescription);
+
+        const string contractsSlideHoverEnableDescription =
+            "Also bring the contracts section in when you rest the pointer on its tab, not only when you click it. "
+            + "There is a short delay before it opens and before it closes again, so sweeping over the tab on the "
+            + "way somewhere else does nothing. Clicking still works, and a click wins over hover.";
+        ContractsSlideHoverEnabled = c.Bind(
+            "Contracts",
+            "ContractsSlideHoverEnabled",
+            false,
+            contractsSlideHoverEnableDescription
+        );
+
+        const string contractsStartOutOfViewDescription =
+            "Start each session with the contracts section already slid out of view. Turn this off to have it "
+            + "start in view, with the tab there to push it out.";
+        ContractsStartOutOfView = c.Bind(
+            "Contracts",
+            "ContractsStartOutOfView",
+            true,
+            contractsStartOutOfViewDescription
+        );
+
         const string deferBottomBarClicksToSimpleTweaksDescription =
             "Advanced compatibility option. If you also run Simple Tweaks, both mods react to Ctrl-clicks "
             + "on the quick-access bar at the bottom of the screen; turn this on to let Simple Tweaks handle "
@@ -305,5 +341,44 @@ sealed class Configuration {
             false,
             deferBottomBarClicksToSimpleTweaksDescription
         );
+
+        const string diagnosticsEnabledDescription =
+            "Developer tool. Turns on hotkeys that write a text dump of the game's on-screen UI hierarchy to "
+            + "BepInEx/ui-dumps/, for diagnosing layout problems. Leave this off — it does nothing for normal play.";
+        DiagnosticsEnabled = c.Bind("Diagnostics", "DiagnosticsEnabled", false, diagnosticsEnabledDescription);
+
+        const string overviewDumpKeyDescription =
+            "Developer tool. Dump a depth-limited overview of every on-screen canvas. Needs DiagnosticsEnabled.";
+        OverviewDumpKey = c.Bind(
+            "Diagnostics",
+            "OverviewDumpKey",
+            new KeyboardShortcut(KeyCode.F9, KeyCode.LeftControl, KeyCode.LeftShift),
+            overviewDumpKeyDescription
+        );
+
+        const string pointerDumpKeyDescription =
+            "Developer tool. Dump full detail on whatever is under the mouse. Needs DiagnosticsEnabled.";
+        PointerDumpKey = c.Bind(
+            "Diagnostics",
+            "PointerDumpKey",
+            new KeyboardShortcut(KeyCode.F10, KeyCode.LeftControl, KeyCode.LeftShift),
+            pointerDumpKeyDescription
+        );
+
+        const string landmarkDumpKeyDescription =
+            "Developer tool. Dump the named landmark subtrees. Needs DiagnosticsEnabled. Avoid F8 — the game "
+            + "opens its bug-report dialog on F8 no matter which modifiers are held.";
+        LandmarkDumpKey = c.Bind(
+            "Diagnostics",
+            "LandmarkDumpKey",
+            new KeyboardShortcut(KeyCode.F3, KeyCode.LeftControl, KeyCode.LeftShift),
+            landmarkDumpKeyDescription
+        );
+
+        const string pointerClimbLevelsDescription =
+            "Developer tool. How many levels above the deepest node under the mouse the pointer dump roots its "
+            + "full-depth walk. Raise it to see cousin branches; the dump caps its own depth if the subtree gets "
+            + "too big. Clamped to 0-8.";
+        PointerClimbLevels = c.Bind("Diagnostics", "PointerClimbLevels", 2, pointerClimbLevelsDescription);
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using BepInEx.Bootstrap;
+using QoLarExpanse.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,8 +13,8 @@ namespace QoLarExpanse.Shared;
 // (which assumes canvas-space coordinates) keeps working untouched.
 sealed class StatusDropdown : MonoBehaviour {
     const string HostName = "qolStatusDropdown";
-    const string FrameName = "qolStatusDropdownFrame";
-    const string ButtonName = "qolStatusDropdownButton";
+    internal const string FrameName = "qolStatusDropdownFrame";
+    internal const string ButtonName = "qolStatusDropdownButton";
     const string LaunchWindowsPanelName = "modLaunchWindowsPanel";
     const float DiscoverySeconds = 2f;
     const float Gap = 6f;
@@ -25,6 +26,9 @@ sealed class StatusDropdown : MonoBehaviour {
     // Clears the notification cluster at the right end of the top bar, and leaves room to the right of
     // the open rows for the panel each one summons.
     const float LeftShift = 260f;
+
+    // Into the reclaimed logo corner: 410.33 would sit flush at x=0, less the frame's own 8-unit inset.
+    const float LogoHiddenLeftShift = 402f;
 
     // Table order is display order, so rows stack the same way regardless of chainload order. GUIDs are
     // diagnostics only; discovery is by GameObject name, so no foreign assembly is referenced.
@@ -51,6 +55,15 @@ sealed class StatusDropdown : MonoBehaviour {
     bool _open;
     Image? _showButtonImage;
     RectTransform _showButtonRect = null!;
+
+    // Both entries are launch-time only, and Configuration Manager does not function in this game, so
+    // nothing can observe a mid-session change; resolve once at type load rather than on every
+    // RecomputeAnchor call. Same reasoning as HotkeyRouter's Diagnostics field: first touch of this
+    // type is the StatusDropdownPatch postfix, which runs well after Services.Init.
+    static readonly float CurrentLeftShift =
+        Services.Config.MasterEnabled.Value && Services.Config.HideCorporationLogo.Value
+            ? LogoHiddenLeftShift
+            : LeftShift;
 
     // Positions are re-asserted every frame, after every mover's Update and before rendering, so a
     // mod that moves its own indicator simply loses the argument invisibly.
@@ -223,7 +236,10 @@ sealed class StatusDropdown : MonoBehaviour {
                 worldCamera,
                 out var topLeft
             )) {
-            _buttonRect.anchoredPosition = new Vector2(topLeft.x - LeftShift - _buttonRect.sizeDelta.x, topLeft.y);
+            _buttonRect.anchoredPosition = new Vector2(
+                topLeft.x - CurrentLeftShift - _buttonRect.sizeDelta.x,
+                topLeft.y
+            );
         }
     }
 

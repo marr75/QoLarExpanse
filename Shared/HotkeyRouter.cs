@@ -8,6 +8,7 @@ using Game.UI.Windows.Elements.PlanMissionElements;
 using Game.UI.Windows.Windows;
 using Manager;
 using QoLarExpanse.Core;
+using QoLarExpanse.Diagnostics;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -20,47 +21,81 @@ sealed class HotkeyRouter : MonoBehaviour {
     // before the sim state they hold is torn down by a save/load, same as the pause-menu path does.
     const float QuiesceSeconds = 0.25f;
 
-    // Permanent developer instrumentation, dead unless ShipTileDump.Diagnostics is flipped and the mod
-    // rebuilt; never config-gated, because a user-facing key to switch on our own debugging is churn in
-    // their config file that never gets cleaned up.
-    static readonly KeyboardShortcut ShipTileDumpKey = new(KeyCode.F9, KeyCode.LeftControl, KeyCode.LeftShift);
+    // Read once at type load, which happens inside Ensure(), after Services.Init: launch-time by
+    // construction, and one bool test per frame when off.
+    static readonly bool Diagnostics = Services.Config.DiagnosticsEnabled.Value;
+
+    // Same launch-time-by-construction reasoning as Diagnostics above. Configuration Manager does not
+    // function in this game, so nothing can observe a mid-session change to these entries; caching once
+    // avoids three ConfigEntry reads every frame at no behavioural cost.
+    static readonly KeyboardShortcut OverviewDumpKey = Services.Config.OverviewDumpKey.Value;
+    static readonly KeyboardShortcut PointerDumpKey = Services.Config.PointerDumpKey.Value;
+    static readonly KeyboardShortcut LandmarkDumpKey = Services.Config.LandmarkDumpKey.Value;
+
+    // Same reasoning, extended to the rest of the router's hotkeys and toggles.
+    static readonly bool MasterEnabled = Services.Config.MasterEnabled.Value;
+    static readonly bool BodyNavigationEnabled = Services.Config.BodyNavigationEnabled.Value;
+    static readonly KeyboardShortcut NextBodyKey = Services.Config.NextBodyKey.Value;
+    static readonly KeyboardShortcut PreviousBodyKey = Services.Config.PreviousBodyKey.Value;
+    static readonly KeyboardShortcut NextMoonKey = Services.Config.NextMoonKey.Value;
+    static readonly KeyboardShortcut PreviousMoonKey = Services.Config.PreviousMoonKey.Value;
+    static readonly bool ToggleViewEnabled = Services.Config.ToggleViewEnabled.Value;
+    static readonly KeyboardShortcut ToggleViewKey = Services.Config.ToggleViewKey.Value;
+    static readonly bool ScreenHotkeysEnabled = Services.Config.ScreenHotkeysEnabled.Value;
+    static readonly KeyboardShortcut SearchScreenKey = Services.Config.SearchScreenKey.Value;
+    static readonly KeyboardShortcut MissionsScreenKey = Services.Config.MissionsScreenKey.Value;
+    static readonly KeyboardShortcut MarketScreenKey = Services.Config.MarketScreenKey.Value;
+    static readonly KeyboardShortcut ResearchScreenKey = Services.Config.ResearchScreenKey.Value;
+    static readonly bool MissionPlanningKeysEnabled = Services.Config.MissionPlanningKeysEnabled.Value;
+    static readonly KeyboardShortcut ToggleOriginOrbitKey = Services.Config.ToggleOriginOrbitKey.Value;
+    static readonly KeyboardShortcut ToggleDestinationOrbitKey = Services.Config.ToggleDestinationOrbitKey.Value;
+    static readonly KeyboardShortcut SwapOriginDestinationKey = Services.Config.SwapOriginDestinationKey.Value;
+    static readonly KeyboardShortcut PlanBackKey = Services.Config.PlanBackKey.Value;
+    static readonly KeyboardShortcut PlanNextKey = Services.Config.PlanNextKey.Value;
+    static readonly bool QuickSaveLoadEnabled = Services.Config.QuickSaveLoadEnabled.Value;
+    static readonly KeyboardShortcut QuickSaveKey = Services.Config.QuickSaveKey.Value;
+    static readonly KeyboardShortcut QuickLoadKey = Services.Config.QuickLoadKey.Value;
 
     static HotkeyRouter? _instance;
 
     void Update() {
-        if (ShipTileDump.Diagnostics && ShipTileDumpKey.IsDown()) { ShipTileDump.Write(); }
-
-        if (!Services.Config.MasterEnabled.Value || TypingInField()) { return; }
-
-        if (Services.Config.BodyNavigationEnabled.Value) {
-            if (Services.Config.NextBodyKey.Value.IsDown()) { BodyOutline.Step(1, false); }
-            if (Services.Config.PreviousBodyKey.Value.IsDown()) { BodyOutline.Step(-1, false); }
-            if (Services.Config.NextMoonKey.Value.IsDown()) { BodyOutline.Step(1, true); }
-            if (Services.Config.PreviousMoonKey.Value.IsDown()) { BodyOutline.Step(-1, true); }
+        if (Diagnostics) {
+            if (OverviewDumpKey.IsDown()) { UiDumps.Overview(); }
+            if (PointerDumpKey.IsDown()) { UiDumps.Pointer(); }
+            if (LandmarkDumpKey.IsDown()) { UiDumps.Landmarks(); }
         }
 
-        if (Services.Config.ToggleViewEnabled.Value && Services.Config.ToggleViewKey.Value.IsDown()) {
+        if (!MasterEnabled || TypingInField()) { return; }
+
+        if (BodyNavigationEnabled) {
+            if (NextBodyKey.IsDown()) { BodyOutline.Step(1, false); }
+            if (PreviousBodyKey.IsDown()) { BodyOutline.Step(-1, false); }
+            if (NextMoonKey.IsDown()) { BodyOutline.Step(1, true); }
+            if (PreviousMoonKey.IsDown()) { BodyOutline.Step(-1, true); }
+        }
+
+        if (ToggleViewEnabled && ToggleViewKey.IsDown()) {
             CounterpartResolver.ToggleCurrentWindow();
         }
 
-        if (Services.Config.ScreenHotkeysEnabled.Value) {
-            if (Services.Config.SearchScreenKey.Value.IsDown()) { OpenScreen(EWindowType.SearchObject); }
-            if (Services.Config.MissionsScreenKey.Value.IsDown()) { OpenMissions(); }
-            if (Services.Config.MarketScreenKey.Value.IsDown()) { OpenMarket(); }
-            if (Services.Config.ResearchScreenKey.Value.IsDown()) { OpenScreen(EWindowType.ResearchTree); }
+        if (ScreenHotkeysEnabled) {
+            if (SearchScreenKey.IsDown()) { OpenScreen(EWindowType.SearchObject); }
+            if (MissionsScreenKey.IsDown()) { OpenMissions(); }
+            if (MarketScreenKey.IsDown()) { OpenMarket(); }
+            if (ResearchScreenKey.IsDown()) { OpenScreen(EWindowType.ResearchTree); }
         }
 
-        if (Services.Config.MissionPlanningKeysEnabled.Value) {
-            if (Services.Config.ToggleOriginOrbitKey.Value.IsDown()) { TogglePlanOrbit(true); }
-            if (Services.Config.ToggleDestinationOrbitKey.Value.IsDown()) { TogglePlanOrbit(false); }
-            if (Services.Config.SwapOriginDestinationKey.Value.IsDown()) { SwapPlanOriginDestination(); }
-            if (Services.Config.PlanBackKey.Value.IsDown()) { PlanBack(); }
-            if (Services.Config.PlanNextKey.Value.IsDown()) { PlanNext(); }
+        if (MissionPlanningKeysEnabled) {
+            if (ToggleOriginOrbitKey.IsDown()) { TogglePlanOrbit(true); }
+            if (ToggleDestinationOrbitKey.IsDown()) { TogglePlanOrbit(false); }
+            if (SwapOriginDestinationKey.IsDown()) { SwapPlanOriginDestination(); }
+            if (PlanBackKey.IsDown()) { PlanBack(); }
+            if (PlanNextKey.IsDown()) { PlanNext(); }
         }
 
-        if (Services.Config.QuickSaveLoadEnabled.Value) {
-            if (Services.Config.QuickSaveKey.Value.IsDown()) { QuickSave(); }
-            if (Services.Config.QuickLoadKey.Value.IsDown()) { QuickLoad(); }
+        if (QuickSaveLoadEnabled) {
+            if (QuickSaveKey.IsDown()) { QuickSave(); }
+            if (QuickLoadKey.IsDown()) { QuickLoad(); }
         }
     }
 
