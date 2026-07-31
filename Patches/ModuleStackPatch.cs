@@ -35,6 +35,10 @@ static class ModuleStackPatch {
     const float RuleMaxHeight = 6f;
     const float RuleMinWidth = 40f;
 
+    // Read once at type load — which happens inside Prepare(), after Services.Init — so the underline
+    // scan costs one bool test per candidate when diagnostics are off.
+    static readonly bool Diagnostics = Services.Config.DiagnosticsEnabled.Value;
+
     static bool Prepare() => Services.Config.MasterEnabled.Value && Services.Config.ModuleStackEnabled.Value;
 
     // Deliberately no InBatch early-out: C6's Drop All rebuilds from inside RunBatch and the
@@ -64,6 +68,10 @@ static class ModuleStackPatch {
     static void Strip(ResorceRow row) {
         CargoListOps.StripRow(row);
         if (row.modules != null) { CargoListOps.StripInjected(row.modules.transform); }
+        // Stamp hosts the cluster on the weight figure's PARENT — a GRANDCHILD of modules — and
+        // StripInjected walks direct children only, so the two roots above never reach it.
+        var host = row.moduleWeightMeshPro == null ? null : row.moduleWeightMeshPro.transform.parent;
+        if (host != null) { CargoListOps.StripInjected(host); }
         // Only module rows get the stock figure back: SetData deliberately hides it on resource rows.
         if (row.moduleWeightMeshPro != null
             && CargoListOps.CargoOf(row) is { resourceTypeType: EResourceTypeType.modules }) {
@@ -239,16 +247,45 @@ static class ModuleStackPatch {
     // text and our own CI_ widgets so a reused input's background can't pose as the rule.
     static Rect? Underline(Transform scanRoot, RectTransform host, Rect line) {
         Rect? best = null;
+        Rect winnerRaw = default;
+        Graphic? winner = null;
         foreach (var graphic in scanRoot.GetComponentsInChildren<Graphic>(true)) {
-            var rect = LocalRect((RectTransform)graphic.transform, host);
-            if (RejectReason(graphic, host, rect, line) != null) { continue; }
-            if (best == null || rect.width > best.Value.width) { best = rect; }
+            var raw = RawLocalRect((RectTransform)graphic.transform, host);
+            var rect = Normalize(raw);
+            var reason = RejectReason(graphic, host, rect, line);
+            if (Diagnostics) {
+                Plugin.Log.LogInfo($"[stack] rule candidate {Describe(graphic, rect, raw)} -> {reason ?? "ok"}");
+            }
+            if (reason != null) { continue; }
+            if (best == null || rect.width > best.Value.width) {
+                best = rect;
+                winnerRaw = raw;
+                winner = graphic;
+            }
+        }
+        if (Diagnostics) {
+            Plugin.Log.LogInfo(winner == null
+                ? $"[stack] rule scan found nothing near cy={line.center.y:0.##}; falling back to the figure-relative span"
+                : $"[stack] rule scan winner {Describe(winner, best!.Value, winnerRaw)}");
         }
         return best;
     }
 
+    // raw is the SIGNED rect the filters would have seen before normalization: it, not localScale,
+    // is the authoritative record of a flip, since the flip may come from any ancestor below host.
+    static string Describe(Graphic graphic, Rect rect, Rect raw) {
+        var parent = graphic.transform.parent;
+        var scale = graphic.transform.localScale;
+        return $"{(parent == null ? "" : parent.name + "/")}{graphic.name} "
+            + $"x[{rect.xMin:0.##}..{rect.xMax:0.##}] {rect.width:0.##}x{rect.height:0.##} cy={rect.center.y:0.##} "
+            + $"raw={raw.width:0.##}x{raw.height:0.##} scale=({scale.x:0.##},{scale.y:0.##})";
+    }
+
     static string? RejectReason(Graphic graphic, RectTransform host, Rect rect, Rect line) {
         if (graphic is TMP_Text) { return "tmpText"; }
+        // The scan includes inactive objects, so the row's switched-off resources/crew/crewNew
+        // subtrees still hold full-width graphics sitting right on the weight line.
+        if (!graphic.gameObject.activeInHierarchy) { return "inactive"; }
         if (Injected(graphic.transform, host)) { return "injected"; }
         if (Mathf.Abs(rect.center.y - line.center.y) > Mathf.Max(1.5f * Mathf.Abs(line.height), 24f)) {
             return "offLine";
@@ -265,12 +302,20 @@ static class ModuleStackPatch {
         return false;
     }
 
-    static Rect LocalRect(RectTransform target, RectTransform space) {
+    // Normalized on both axes: stock rects on this line are genuinely INVERTED (ModuleAmmount ships
+    // size=(155.9,-32.2)) or y-flipped by scale, and a signed extent silently defeats every size filter.
+    static Rect LocalRect(RectTransform target, RectTransform space) => Normalize(RawLocalRect(target, space));
+
+    static Rect Normalize(Rect r) => Rect.MinMaxRect(
+        Mathf.Min(r.xMin, r.xMax), Mathf.Min(r.yMin, r.yMax), Mathf.Max(r.xMin, r.xMax), Mathf.Max(r.yMin, r.yMax)
+    );
+
+    static Rect RawLocalRect(RectTransform target, RectTransform space) {
         var corners = new Vector3[4];
         target.GetWorldCorners(corners);
-        var min = space.InverseTransformPoint(corners[0]);
-        var max = space.InverseTransformPoint(corners[2]);
-        return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        var a = space.InverseTransformPoint(corners[0]);
+        var b = space.InverseTransformPoint(corners[2]);
+        return Rect.MinMaxRect(a.x, a.y, b.x, b.y);
     }
 
     static void Commit(ResourcesList list, ResorceRow row, CargoGroup group, TMP_InputField field) {
